@@ -89,3 +89,42 @@ local	remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
 local	branch.main.remote=origin
 local	branch.main.merge=refs/heads/main
 
+# 7) (보충, 11월 2일 21:05 KST) 제출 저장소 timmy518/Codyssey_E_1-1 연결 확인 — 처음 게시한 dev-workstation 은 지웠다.
+#    로컬에서는 기존 원격을 지우고(git remote remove origin) 새 원격을 연결한 뒤, 결과물 커밋을 GitHub 의 Initial commit 위에 올렸다(VS Code 터미널에서 git push).
+#    기록 시점: README 수정본을 아직 커밋하기 전이다. 그래서 status 의 M(고친 파일)과 ??(새 파일)은 이 기록 뒤에 커밋 하나로 함께 올린 파일들이다(이 로그 파일 포함).
+timmy518@AISiLa:~/codyssey/dev-workstation$ git remote -v
+origin	https://github.com/timmy518/Codyssey_E_1-1.git (fetch)
+origin	https://github.com/timmy518/Codyssey_E_1-1.git (push)
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --local --get-regexp '^(remote|branch)\.'
+remote.origin.url https://github.com/timmy518/Codyssey_E_1-1.git
+remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+branch.main.remote origin
+branch.main.merge refs/heads/main
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git status -sb
+## main...origin/main
+ M README.md
+ M logs/03_docker_install.log
+ M logs/11_git.log
+ M logs/13_secret_check.log
+?? docs/images/01_terminal_files.png
+?? docs/images/06_hello_world.png
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git log --oneline --decorate -n 3
+baf1d6b (HEAD -> main, origin/main) Dev workstation 미션: WSL2 + Docker + Git 작업실 구축 기록
+d89fb8c Initial commit
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git ls-remote --heads origin
+baf1d6b81f18ff030653027deb59ac966bd205cb	refs/heads/main
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git reflog show --date=iso origin/main
+baf1d6b refs/remotes/origin/main@{2026-11-02 16:49:28 +0900}: update by push
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos/timmy518/Codyssey_E_1-1 | grep -E "\"(full_name|visibility|default_branch|html_url)\""
+  "full_name": "timmy518/Codyssey_E_1-1",
+    "html_url": "https://github.com/timmy518",
+  "html_url": "https://github.com/timmy518/Codyssey_E_1-1",
+  "visibility": "public",
+  "default_branch": "main",
+

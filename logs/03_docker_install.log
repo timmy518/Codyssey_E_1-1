@@ -1,5 +1,5 @@
 # Docker Engine 설치 — 공식 문서(https://docs.docker.com/engine/install/ubuntu/)의 apt 저장소 방식
-# 관리자(root) 권한으로 실행했다. 일반 사용자 터미널에서 따라 할 때는 각 명령 앞에 sudo 를 붙인다.
+# 관리자(root) 권한으로 실행했다. 일반 사용자 터미널에서 따라 할 때는 README 5.3 의 '일반 사용자로 따라 하기'를 쓴다(명령 앞에 sudo 를 붙이되, 저장소 파일을 만드는 printf 줄은 '| sudo tee 파일' 로 바꾼다).
 # OS 확인 + systemd 동작 확인 (PID 1 이 systemd 여야 docker 서비스가 자동 시작된다)
 root@AISiLa:~# grep -E "^(PRETTY_NAME|VERSION_CODENAME)=" /etc/os-release
 PRETTY_NAME="Ubuntu 24.04.5 LTS"
