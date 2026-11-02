@@ -1,0 +1,122 @@
+# 1) 현재 위치 확인 — 터미널을 열면 홈 디렉토리(~)에서 시작한다
+timmy518@AISiLa:~$ pwd
+/home/timmy518
+
+# 2) 실습용 작업 디렉토리 만들기 (-p: 중간 경로(codyssey)까지 한 번에 생성)
+timmy518@AISiLa:~$ mkdir -p ~/codyssey/practice
+
+# 3) 상대 경로로 이동 (현재 위치 기준)
+timmy518@AISiLa:~$ cd codyssey/practice
+
+timmy518@AISiLa:~/codyssey/practice$ pwd
+/home/timmy518/codyssey/practice
+
+# 4) 빈 파일 만들기(touch) / 내용 있는 파일 만들기(echo + > 리다이렉션) / 숨김 파일(.으로 시작)
+timmy518@AISiLa:~/codyssey/practice$ touch empty.txt
+
+timmy518@AISiLa:~/codyssey/practice$ echo "Hello, Codyssey!" > hello.txt
+
+timmy518@AISiLa:~/codyssey/practice$ touch .hidden_config
+
+# 5) 목록 확인 — ls 는 숨김 파일을 안 보여주고, ls -la 는 숨김 파일(., .., .hidden_config)까지 보여준다
+timmy518@AISiLa:~/codyssey/practice$ ls
+empty.txt
+hello.txt
+
+timmy518@AISiLa:~/codyssey/practice$ ls -la
+total 12
+drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 .
+drwxr-xr-x 4 timmy518 timmy518 4096 Nov  2 13:46 ..
+-rw-r--r-- 1 timmy518 timmy518    0 Nov  2 13:46 .hidden_config
+-rw-r--r-- 1 timmy518 timmy518    0 Nov  2 13:46 empty.txt
+-rw-r--r-- 1 timmy518 timmy518   17 Nov  2 13:46 hello.txt
+
+# 6) 파일 내용 확인 — 빈 파일은 아무것도 출력되지 않는다 (크기 0 바이트)
+timmy518@AISiLa:~/codyssey/practice$ cat hello.txt
+Hello, Codyssey!
+
+timmy518@AISiLa:~/codyssey/practice$ cat empty.txt
+
+timmy518@AISiLa:~/codyssey/practice$ wc -c empty.txt hello.txt
+ 0 empty.txt
+17 hello.txt
+17 total
+
+# 7) 디렉토리 만들기 + 복사 (cp: 파일 복사 / cp -r: 디렉토리째 복사)
+timmy518@AISiLa:~/codyssey/practice$ mkdir docs backup
+
+timmy518@AISiLa:~/codyssey/practice$ cp hello.txt backup/hello_copy.txt
+
+timmy518@AISiLa:~/codyssey/practice$ cp -r backup backup_copy
+
+timmy518@AISiLa:~/codyssey/practice$ ls -la backup backup_copy
+backup:
+total 12
+drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 .
+drwxr-xr-x 5 timmy518 timmy518 4096 Nov  2 13:46 ..
+-rw-r--r-- 1 timmy518 timmy518   17 Nov  2 13:46 hello_copy.txt
+
+backup_copy:
+total 12
+drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 .
+drwxr-xr-x 5 timmy518 timmy518 4096 Nov  2 13:46 ..
+-rw-r--r-- 1 timmy518 timmy518   17 Nov  2 13:46 hello_copy.txt
+
+# 8) 이동과 이름 변경 — 둘 다 mv 명령 (목적지가 디렉토리면 이동, 새 이름이면 이름 변경)
+timmy518@AISiLa:~/codyssey/practice$ mv hello.txt docs/
+
+timmy518@AISiLa:~/codyssey/practice$ mv docs/hello.txt docs/greeting.txt
+
+timmy518@AISiLa:~/codyssey/practice$ ls -la docs
+total 12
+drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 .
+drwxr-xr-x 5 timmy518 timmy518 4096 Nov  2 13:46 ..
+-rw-r--r-- 1 timmy518 timmy518   17 Nov  2 13:46 greeting.txt
+
+timmy518@AISiLa:~/codyssey/practice$ cat docs/greeting.txt
+Hello, Codyssey!
+
+# 9) 절대 경로 vs 상대 경로
+timmy518@AISiLa:~/codyssey/practice$ cd /home/timmy518/codyssey/practice/docs
+
+timmy518@AISiLa:~/codyssey/practice/docs$ pwd
+/home/timmy518/codyssey/practice/docs
+
+timmy518@AISiLa:~/codyssey/practice/docs$ cd ..
+
+timmy518@AISiLa:~/codyssey/practice$ pwd
+/home/timmy518/codyssey/practice
+
+timmy518@AISiLa:~/codyssey/practice$ cd ./docs
+
+timmy518@AISiLa:~/codyssey/practice/docs$ pwd
+/home/timmy518/codyssey/practice/docs
+
+timmy518@AISiLa:~/codyssey/practice/docs$ cd ~/codyssey/practice
+
+timmy518@AISiLa:~/codyssey/practice$ pwd
+/home/timmy518/codyssey/practice
+
+# 10) 삭제 — rm: 파일 / rmdir: 빈 디렉토리 / rm -r: 내용이 있는 디렉토리
+timmy518@AISiLa:~/codyssey/practice$ rm backup/hello_copy.txt
+
+timmy518@AISiLa:~/codyssey/practice$ rmdir backup
+
+timmy518@AISiLa:~/codyssey/practice$ rm -r backup_copy
+
+timmy518@AISiLa:~/codyssey/practice$ rm empty.txt
+
+timmy518@AISiLa:~/codyssey/practice$ ls -la
+total 12
+drwxr-xr-x 3 timmy518 timmy518 4096 Nov  2 13:46 .
+drwxr-xr-x 4 timmy518 timmy518 4096 Nov  2 13:46 ..
+-rw-r--r-- 1 timmy518 timmy518    0 Nov  2 13:46 .hidden_config
+drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 docs
+
+# 최종 구조 확인
+timmy518@AISiLa:~/codyssey/practice$ find . | sort
+.
+./.hidden_config
+./docs
+./docs/greeting.txt
+

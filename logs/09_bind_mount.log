@@ -1,0 +1,46 @@
+# 바인드 마운트: 호스트(WSL)의 폴더를 컨테이너 안의 경로에 그대로 연결한다
+# → 호스트에서 파일을 고치면 컨테이너를 다시 만들거나 이미지를 다시 빌드하지 않아도 바로 반영된다
+timmy518@AISiLa:~/codyssey/practice$ mkdir bind-site
+
+timmy518@AISiLa:~/codyssey/practice$ printf '<h1>Bind Mount v1</h1>\n<p>host file: ~/codyssey/practice/bind-site/index.html</p>\n' > bind-site/index.html
+
+timmy518@AISiLa:~/codyssey/practice$ cat bind-site/index.html
+<h1>Bind Mount v1</h1>
+<p>host file: ~/codyssey/practice/bind-site/index.html</p>
+
+timmy518@AISiLa:~/codyssey/practice$ docker run -d --name web-bind -p 8082:80 -v "$PWD/bind-site":/usr/share/nginx/html my-web:1.0
+0914cd9b49d88177ecafb3ff7d25ac0bf75a4a8ba3d1a2439e875e60e5617f66
+
+timmy518@AISiLa:~/codyssey/practice$ docker inspect web-bind --format '{{range .Mounts}}{{.Type}}: {{.Source}} -> {{.Destination}}{{end}}'
+bind: /home/timmy518/codyssey/practice/bind-site -> /usr/share/nginx/html
+
+# [변경 전] 접속 결과
+timmy518@AISiLa:~/codyssey/practice$ curl -sS http://localhost:8082
+<h1>Bind Mount v1</h1>
+<p>host file: ~/codyssey/practice/bind-site/index.html</p>
+
+# 호스트에서 파일 수정 (컨테이너 재시작·재빌드 없음)
+timmy518@AISiLa:~/codyssey/practice$ sed -i 's/v1/v2 (edited on host)/' bind-site/index.html
+
+timmy518@AISiLa:~/codyssey/practice$ cat bind-site/index.html
+<h1>Bind Mount v2 (edited on host)</h1>
+<p>host file: ~/codyssey/practice/bind-site/index.html</p>
+
+# [변경 후] 접속 결과 — 바로 v2 가 보인다
+timmy518@AISiLa:~/codyssey/practice$ curl -sS http://localhost:8082
+<h1>Bind Mount v2 (edited on host)</h1>
+<p>host file: ~/codyssey/practice/bind-site/index.html</p>
+
+timmy518@AISiLa:~/codyssey/practice$ docker exec web-bind cat /usr/share/nginx/html/index.html
+<h1>Bind Mount v2 (edited on host)</h1>
+<p>host file: ~/codyssey/practice/bind-site/index.html</p>
+
+# 컨테이너는 그동안 재시작되지 않았다 (STATUS 의 Up 시간이 계속 이어짐)
+timmy518@AISiLa:~/codyssey/practice$ docker ps --filter name=web-bind --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+NAMES      STATUS                   PORTS
+web-bind   Up 6 seconds (healthy)   0.0.0.0:8082->80/tcp, [::]:8082->80/tcp
+
+# 비교: 바인드 마운트가 없는 web-8080 은 이미지 안에 복사된(COPY) 파일을 쓰므로 영향이 없다
+timmy518@AISiLa:~/codyssey/practice$ curl -sS http://localhost:8080 | grep -o "<h1>.*</h1>"
+<h1>개발자 작업실이 열렸습니다</h1>
+

@@ -1,0 +1,112 @@
+# 1) Docker 버전 확인 (클라이언트 CLI)
+timmy518@AISiLa:~$ docker --version
+Docker version 29.9.2, build a82e528
+
+timmy518@AISiLa:~$ docker compose version
+Docker Compose version v5.6.1
+
+# 2) 데몬 동작 확인 — docker version 은 Client 와 Server(=데몬) 정보를 함께 보여준다. Server 부분이 나오면 데몬이 살아 있다
+timmy518@AISiLa:~$ docker version
+Client: Docker Engine - Community
+ Version:           29.9.2
+ API version:       1.56
+ Go version:        go1.26.10
+ Git commit:        a82e528
+ Built:             Tue Oct 20 18:44:40 2026
+ OS/Arch:           linux/amd64
+ Context:           default
+
+Server: Docker Engine - Community
+ Engine:
+  Version:          29.9.2
+  API version:      1.56 (minimum version 1.40)
+  Go version:       go1.26.10
+  Git commit:       0367cbe
+  Built:            Tue Oct 20 18:44:40 2026
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          v2.4.2
+  GitCommit:        b7a25261e029d68978bbf290df0a62fc819b3c51
+ runc:
+  Version:          1.5.2
+  GitCommit:        v1.5.2-0-g29dd3dc2
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+
+# 3) docker info — 데몬 상태, 컨테이너/이미지 개수, 스토리지 드라이버, cgroup, 커널 등 상세 점검
+timmy518@AISiLa:~$ docker info
+Client: Docker Engine - Community
+ Version:    29.9.2
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  buildx: Docker Buildx (Docker Inc.)
+    Version:  v0.38.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+  compose: Docker Compose (Docker Inc.)
+    Version:  v5.6.1
+    Path:     /usr/libexec/docker/cli-plugins/docker-compose
+
+Server:
+ Containers: 0
+  Running: 0
+  Paused: 0
+  Stopped: 0
+ Images: 0
+ Server Version: 29.9.2
+ Storage Driver: overlayfs
+  driver-type: io.containerd.snapshotter.v1
+ Logging Driver: json-file
+ Cgroup Driver: systemd
+ Cgroup Version: 2
+ Plugins:
+  Volume: local
+  Network: bridge host ipvlan macvlan null overlay
+  Log: awslogs fluentd gcplogs gelf journald json-file local splunk syslog
+ CDI spec directories:
+  /etc/cdi
+  /var/run/cdi
+ Swarm: inactive
+ Runtimes: io.containerd.runc.v2 runc
+ Default Runtime: runc
+ Init Binary: docker-init
+ containerd version: b7a25261e029d68978bbf290df0a62fc819b3c51
+ runc version: v1.5.2-0-g29dd3dc2
+ init version: de40ad0
+ Security Options:
+  seccomp
+   Profile: builtin
+  cgroupns
+ Kernel Version: 6.18.54.1-microsoft-standard-WSL2
+ Operating System: Ubuntu 24.04.5 LTS
+ OSType: linux
+ Architecture: x86_64
+ CPUs: 12
+ Total Memory: 7.602GiB
+ Name: AISiLa
+ ID: 3305396a-0274-41c3-935a-41773bb7a62c
+ Docker Root Dir: /var/lib/docker
+ Debug Mode: false
+ Experimental: false
+ Insecure Registries:
+  127.0.0.0/8
+  ::1/128
+ Live Restore Enabled: false
+ Firewall Backend: iptables
+  EnableUserlandProxy: true
+  UserlandProxyPath: /usr/bin/docker-proxy
+
+
+# 4) systemd 서비스 상태 + sudo 없이 쓸 수 있는 이유(docker 그룹 + 소켓 권한)
+timmy518@AISiLa:~$ systemctl is-active docker containerd
+active
+active
+
+timmy518@AISiLa:~$ id -nG
+timmy518 adm cdrom sudo dip plugdev users docker
+
+timmy518@AISiLa:~$ ls -l /var/run/docker.sock
+srw-rw---- 1 root docker 0 Nov  2 13:41 /var/run/docker.sock
+

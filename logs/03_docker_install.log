@@ -1,0 +1,60 @@
+# Docker Engine 설치 — 공식 문서(https://docs.docker.com/engine/install/ubuntu/)의 apt 저장소 방식
+# 관리자(root) 권한으로 실행했다. 일반 사용자 터미널에서 따라 할 때는 각 명령 앞에 sudo 를 붙인다.
+# OS 확인 + systemd 동작 확인 (PID 1 이 systemd 여야 docker 서비스가 자동 시작된다)
+root@AISiLa:~# grep -E "^(PRETTY_NAME|VERSION_CODENAME)=" /etc/os-release
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+VERSION_CODENAME=noble
+
+root@AISiLa:~# ps -p 1 -o comm=
+systemd
+
+# 1) Docker 공식 GPG 키 등록 (다운로드한 패키지가 진짜 Docker 것인지 검증하는 용도)
+root@AISiLa:~# apt-get update -qq
+
+root@AISiLa:~# apt-get install -y -qq ca-certificates curl > /dev/null && echo "ca-certificates, curl: OK"
+ca-certificates, curl: OK
+
+root@AISiLa:~# install -m 0755 -d /etc/apt/keyrings
+
+root@AISiLa:~# curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+
+root@AISiLa:~# chmod a+r /etc/apt/keyrings/docker.asc
+
+root@AISiLa:~# ls -l /etc/apt/keyrings/docker.asc
+-rw-r--r-- 1 root root 3817 Nov  2 13:41 /etc/apt/keyrings/docker.asc
+
+# 2) Docker apt 저장소 추가
+root@AISiLa:~# printf "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: %s\nComponents: stable\nSigned-By: /etc/apt/keyrings/docker.asc\n" "$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" > /etc/apt/sources.list.d/docker.sources
+
+root@AISiLa:~# cat /etc/apt/sources.list.d/docker.sources
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+
+root@AISiLa:~# apt-get update -qq
+
+# 3) Docker Engine + CLI + containerd + buildx + compose 플러그인 설치 (긴 설치 출력은 /tmp/docker-apt.log 로 보내고 종료 코드와 Setting up 줄만 표시)
+root@AISiLa:~# DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /tmp/docker-apt.log 2>&1; echo "apt-get exit code: $?"; grep -E "^Setting up (docker|containerd)" /tmp/docker-apt.log
+apt-get exit code: 0
+Setting up docker-buildx-plugin (0.38.1-1~ubuntu.24.04~noble) ...
+Setting up containerd.io (2.4.2-3~ubuntu.24.04~noble) ...
+Setting up docker-compose-plugin (5.6.1-1~ubuntu.24.04~noble) ...
+Setting up docker-ce-cli (5:29.9.2-1~ubuntu.24.04~noble) ...
+Setting up docker-ce-rootless-extras (5:29.9.2-1~ubuntu.24.04~noble) ...
+Setting up docker-ce (5:29.9.2-1~ubuntu.24.04~noble) ...
+
+# 4) 서비스 상태 확인 (enabled = 부팅 시 자동 시작, active = 지금 실행 중)
+root@AISiLa:~# systemctl is-enabled docker
+enabled
+
+root@AISiLa:~# systemctl is-active docker
+active
+
+# 5) sudo 없이 docker 를 쓰도록 사용자를 docker 그룹에 추가 (새 터미널부터 적용)
+root@AISiLa:~# usermod -aG docker timmy518
+
+root@AISiLa:~# id timmy518
+uid=1000(timmy518) gid=1000(timmy518) groups=1000(timmy518),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),989(docker)
+

@@ -1,0 +1,109 @@
+# 1) 포트 매핑 없이 실행 → 컨테이너는 80번에서 잘 돌고 있지만, 호스트의 localhost 로는 접속할 수 없다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-noport my-web:1.0
+761bdf2c30eec1495656bbd98ba13b9435ef51c366e859632409928d88d53503
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps --filter name=web-noport --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+NAMES        STATUS                                     PORTS
+web-noport   Up Less than a second (health: starting)   80/tcp
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS --max-time 3 http://localhost:80
+curl: (7) Failed to connect to localhost port 80 after 0 ms: Couldn't connect to server
+[exit code: 7]
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker exec web-noport wget -qO- http://127.0.0.1/health
+ok
+
+#    컨테이너는 Docker 내부 네트워크(bridge)의 자기 IP 에서 듣고 있다. 리눅스 호스트(WSL) 안에서는 그 IP 로 직접 닿지만,
+#    Windows 브라우저나 다른 PC 는 이 내부 IP 에 닿지 않는다 → -p 로 호스트 포트에 연결해야 한다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' web-noport
+172.17.0.2
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS --max-time 3 http://$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" web-noport)/health
+ok
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm -f web-noport
+web-noport
+
+# 2) -p <호스트포트>:<컨테이너포트> 로 실행 — 같은 이미지로 컨테이너 2개, 호스트 포트만 다르게
+#    web-8081 은 -e APP_ENV=prod 로 환경 변수를 바꿔서 실행 (이미지를 다시 빌드하지 않고 동작 변경)
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-8080 -p 8080:80 my-web:1.0
+5a2248b15e0e76760e5e6292feb15473cf891c86d54f35c867ad3c4d07fc8275
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-8081 -p 8081:80 -e APP_ENV=prod my-web:1.0
+00466df6b603d3e452f76be91daffe19f4dba2b87125019326008988db225ee4
+
+#    (헬스체크가 몇 번 돌 때까지 15초 대기)
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps --filter name=web-808 --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+NAMES      IMAGE        STATUS                    PORTS
+web-8081   my-web:1.0   Up 15 seconds (healthy)   0.0.0.0:8081->80/tcp, [::]:8081->80/tcp
+web-8080   my-web:1.0   Up 15 seconds (healthy)   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker port web-8080
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker port web-8081
+80/tcp -> 0.0.0.0:8081
+80/tcp -> [::]:8081
+
+# 3) 접속 확인 (curl)
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:8080 | grep -E "<title>|<h1>"
+  <title>Dev Workstation</title>
+    <h1>개발자 작업실이 열렸습니다</h1>
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS -i http://localhost:8080/health
+HTTP/1.1 200 OK
+Server: nginx/1.30.6
+Date: Mon, 02 Nov 2026 05:50:19 GMT
+Content-Type: text/plain
+Content-Length: 3
+Connection: keep-alive
+X-Served-By: 5a2248b15e0e
+X-App-Env: dev
+
+ok
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:8080/info
+{"app":"dev-workstation","version":"1.0","env":"dev","served_by":"5a2248b15e0e"}
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:8081/info
+{"app":"dev-workstation","version":"1.0","env":"prod","served_by":"00466df6b603"}
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS -o /dev/null -w "8080 -> HTTP %{http_code}\n" http://localhost:8080 && curl -sS -o /dev/null -w "8081 -> HTTP %{http_code}\n" http://localhost:8081
+8080 -> HTTP 200
+8081 -> HTTP 200
+
+# 4) 운영 확인: 접근 로그 / 리소스 사용량 (/health 요청은 nginx 설정에서 access_log off 라서 로그에 남지 않는다)
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker logs --tail 4 web-8080
+2026/11/02 05:50:03 [notice] 1#1: start worker process 47
+172.17.0.1 - - [02/Nov/2026:05:50:19 +0000] "GET / HTTP/1.1" 200 2022 "-" "curl/8.5.0" "-"
+172.17.0.1 - - [02/Nov/2026:05:50:19 +0000] "GET /info HTTP/1.1" 200 81 "-" "curl/8.5.0" "-"
+172.17.0.1 - - [02/Nov/2026:05:50:19 +0000] "GET / HTTP/1.1" 200 2022 "-" "curl/8.5.0" "-"
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker stats --no-stream web-8080 web-8081
+CONTAINER ID   NAME       CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O     PIDS
+5a2248b15e0e   web-8080   0.00%     12.28MiB / 7.602GiB   0.16%     3.15kB / 6.47kB   0B / 16.4kB   13
+00466df6b603   web-8081   0.00%     11.31MiB / 7.602GiB   0.15%     1.97kB / 3.36kB   0B / 12.3kB   13
+
+# 5) 트러블슈팅 재현: 이미 사용 중인 호스트 포트(8080)로 컨테이너를 하나 더 띄우면?
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-conflict -p 8080:80 my-web:1.0
+2d4553e95e9844fe223d1063da633d2ed37acc6eaa80b493b03895d5baf26878
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint web-conflict (7a419e9d649b9a6edfce8ec772f95d5df211167167194c716d895f2f622f7138): Bind for 0.0.0.0:8080 failed: port is already allocated
+
+Run 'docker run --help' for more information
+[exit code: 125]
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=web-conflict --format "table {{.Names}}\t{{.Status}}"
+NAMES          STATUS
+web-conflict   Created
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm web-conflict
+web-conflict
+
+# 6) Windows 쪽(PowerShell)에서 같은 주소로 접속 — WSL2(NAT 모드)가 Windows 의 localhost 요청을 Ubuntu 로 전달한다
+PS> curl.exe -s -o NUL -w "Windows -> localhost:8080 HTTP %{http_code}\n" http://localhost:8080
+Windows -> localhost:8080 HTTP 200
+
+PS> curl.exe -s http://localhost:8081/info
+{"app":"dev-workstation","version":"1.0","env":"prod","served_by":"00466df6b603"}
+

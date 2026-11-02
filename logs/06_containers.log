@@ -1,0 +1,139 @@
+# 1) hello-world — 로컬에 이미지가 없어서 Docker Hub 에서 자동으로 받은(pull) 뒤 실행 → 메시지 출력 후 바로 종료
+timmy518@AISiLa:~$ docker run hello-world
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+4f55086f7dd0: Pulling fs layer
+4f55086f7dd0: Download complete
+4f55086f7dd0: Pull complete
+d5e71e642bf5: Download complete
+Digest: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
+Status: Downloaded newer image for hello-world:latest
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+
+
+timmy518@AISiLa:~$ docker ps -a --filter ancestor=hello-world
+CONTAINER ID   IMAGE         COMMAND    CREATED                  STATUS                              PORTS     NAMES
+3dd0e96bc679   hello-world   "/hello"   Less than a second ago   Exited (0) Less than a second ago             dazzling_brahmagupta
+
+# 2) ubuntu 컨테이너 내부 진입: -i(키보드 입력 유지) + -t(터미널 할당) → 컨테이너 안의 bash 쉘
+#    프롬프트가 timmy518@AISiLa 에서 root@<컨테이너ID> 로 바뀌면 컨테이너 안에 들어온 것
+timmy518@AISiLa:~$ docker run -it --name ubuntu-shell ubuntu:24.04 bash
+root@5392105b2b32:/# ls
+bin   dev  home  lib64  mnt  proc  run   srv  tmp  var
+boot  etc  lib   media  opt  root  sbin  sys  usr
+root@5392105b2b32:/# echo "Hello from inside the container"
+Hello from inside the container
+root@5392105b2b32:/# cat /etc/os-release | head -2
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+root@5392105b2b32:/# exit
+exit
+
+#    메인 프로세스(bash)에서 exit 했으므로 컨테이너는 종료(Exited)된다
+timmy518@AISiLa:~$ docker ps -a --filter name=ubuntu-shell --format "table {{.Names}}\t{{.Status}}"
+NAMES          STATUS
+ubuntu-shell   Exited (0) 2 seconds ago
+
+# 3) attach vs exec 비교 준비 — -d(백그라운드) -i(입력 유지) -t(터미널 할당)
+#    -i/-t 없이 bash 를 띄우면 읽을 입력이 없어서 곧 끝난다 (아래 첫 조회는 너무 빨라 Up 으로 찍혔고, 로그 맨 끝 보충 실험에서 Exited 를 확인)
+timmy518@AISiLa:~$ docker run -d --name no-it-demo ubuntu:24.04 bash
+8c002cd8aebf84055dce0206a318a97457b28c3b9c8f1cad887716c819f49d25
+
+timmy518@AISiLa:~$ docker ps -a --filter name=no-it-demo --format "table {{.Names}}\t{{.Status}}"
+NAMES        STATUS
+no-it-demo   Up Less than a second
+
+timmy518@AISiLa:~$ docker rm no-it-demo
+no-it-demo
+
+#    같은 조건(메인 프로세스 = bash)의 컨테이너 3개를 -dit 로 실행
+timmy518@AISiLa:~$ docker run -dit --name exec-demo ubuntu:24.04 bash
+8bd3bd2d3e64d2802ec7cffe5e5f9e5fdf8d0a66749175f8bb4fb8dd6079a024
+
+timmy518@AISiLa:~$ docker run -dit --name attach-demo ubuntu:24.04 bash
+8d80de17ddf5254c532d5c916a7d3d5dbc9724551edd74afefb20aebe0f4de12
+
+timmy518@AISiLa:~$ docker run -dit --name attach-exit-demo ubuntu:24.04 bash
+e347a361127691a761d7f519efe879ab1e0bd4823e14fd2e7f9aebddb3ef2533
+
+timmy518@AISiLa:~$ docker ps --format "table {{.Names}}\t{{.Status}}"
+NAMES              STATUS
+attach-exit-demo   Up Less than a second
+attach-demo        Up Less than a second
+exec-demo          Up Less than a second
+
+# 3-1) exec: 컨테이너 안에 '새 bash 프로세스'를 하나 더 띄운다 (PID 가 1 이 아님)
+timmy518@AISiLa:~$ docker exec -it exec-demo bash
+root@8bd3bd2d3e64:/# echo "my PID is $$"
+my PID is 9
+root@8bd3bd2d3e64:/# exit
+exit
+
+#      → 내가 띄운 bash 만 끝났으므로 컨테이너는 계속 Up
+timmy518@AISiLa:~$ docker ps -a --filter name=exec-demo --format "table {{.Names}}\t{{.Status}}"
+NAMES       STATUS
+exec-demo   Up 5 seconds
+
+# 3-2) attach: 컨테이너의 '메인 프로세스(PID 1)'에 직접 연결한다. Ctrl+P, Ctrl+Q 로 빠져나오면(detach) 컨테이너는 유지
+#      (Ctrl+P, Ctrl+Q 는 -it 로 실행한 컨테이너에서만 동작한다)
+timmy518@AISiLa:~$ docker attach attach-demo
+root@8d80de17ddf5:/# echo "my PID is $$"
+my PID is 1
+read escape sequence
+
+timmy518@AISiLa:~$ docker ps -a --filter name=attach-demo --format "table {{.Names}}\t{{.Status}}"
+NAMES         STATUS
+attach-demo   Up 10 seconds
+
+# 3-3) attach 상태에서 exit 하면 메인 프로세스(PID 1)가 끝나므로 컨테이너도 종료된다
+timmy518@AISiLa:~$ docker attach attach-exit-demo
+root@e347a3611276:/# echo "my PID is $$"
+my PID is 1
+
+exit
+
+timmy518@AISiLa:~$ docker ps -a --filter name=attach-exit-demo --format "table {{.Names}}\t{{.Status}}"
+NAMES              STATUS
+attach-exit-demo   Exited (0) 2 seconds ago
+
+# 정리
+timmy518@AISiLa:~$ docker rm -f ubuntu-shell exec-demo attach-demo attach-exit-demo
+ubuntu-shell
+exec-demo
+attach-demo
+attach-exit-demo
+
+# (검토 후 보충) 위 3) 의 no-it-demo 는 상태 확인(docker ps -a)을 컨테이너가 끝나기 전에 바로 실행해서 'Up Less than a second' 로 찍혔다.
+#    2초 기다린 뒤 다시 확인하면 -i/-t 없이 띄운 bash 가 입력이 없어 스스로 끝나 Exited(0) 가 된 것을 볼 수 있다
+timmy518@AISiLa:~$ docker run -d --name no-it-demo2 ubuntu:24.04 bash
+efb3dba321130a543d8e9d24df86d5623c3a95c10d2d092ec0c4b0c984b3f221
+
+timmy518@AISiLa:~$ sleep 2
+
+timmy518@AISiLa:~$ docker ps -a --filter name=no-it-demo2 --format "table {{.Names}}\t{{.Status}}"
+NAMES         STATUS
+no-it-demo2   Exited (0) 2 seconds ago
+
+timmy518@AISiLa:~$ docker rm no-it-demo2
+no-it-demo2
+

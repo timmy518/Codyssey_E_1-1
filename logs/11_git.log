@@ -1,0 +1,91 @@
+# 1) Git 버전
+timmy518@AISiLa:~/codyssey/dev-workstation$ git --version
+git version 2.43.0
+
+# 2) 사용자 정보 + 기본 브랜치 설정 (--global: 이 컴퓨터의 내 계정 전체에 적용, ~/.gitconfig 에 저장)
+#    user.name/user.email 은 커밋 작성자로 기록된다 (로그인 정보가 아님)
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.name "timmy518"
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.email "timmy518@naver.com"
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global init.defaultBranch main
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global core.autocrlf input
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --list
+user.name=timmy518
+user.email=timmy518@naver.com
+init.defaultbranch=main
+core.autocrlf=input
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --list --show-origin
+file:/home/timmy518/.gitconfig	user.name=timmy518
+file:/home/timmy518/.gitconfig	user.email=timmy518@naver.com
+file:/home/timmy518/.gitconfig	init.defaultbranch=main
+file:/home/timmy518/.gitconfig	core.autocrlf=input
+
+# 3) 로컬 저장소 만들기 (기본 브랜치가 main 으로 생성되는지 확인)
+timmy518@AISiLa:~/codyssey/dev-workstation$ git init
+Initialized empty Git repository in /home/timmy518/codyssey/dev-workstation/.git/
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git status
+On branch main
+
+No commits yet
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.dockerignore
+	.gitignore
+	Dockerfile
+	app/
+	logs/
+	nginx/
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+# 4) 첫 커밋 확인 — git add/commit 은 이 기록 밖에서 실행했다(그때 CRLF 경고 두 줄이 나왔고 README 5.11 에 옮겨 적음). 아래는 커밋 결과
+timmy518@AISiLa:~/codyssey/dev-workstation$ git log --oneline --decorate -n 1
+f642393 (HEAD -> main, origin/main) Dev workstation 미션: Dockerfile, 웹 페이지, 단계별 실행 로그, README
+
+# 5) VS Code 에서 GitHub 로그인 → 소스 제어의 Publish Branch → public 저장소로 게시한 뒤 연동 확인
+timmy518@AISiLa:~/codyssey/dev-workstation$ git remote -v
+origin	https://github.com/timmy518/dev-workstation.git (fetch)
+origin	https://github.com/timmy518/dev-workstation.git (push)
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git status -sb
+## main...origin/main
+ M logs/11_git.log
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --local --get-regexp '^(remote|branch)\.'
+remote.origin.url https://github.com/timmy518/dev-workstation.git
+remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+branch.main.remote origin
+branch.main.merge refs/heads/main
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ git ls-remote --heads origin
+f642393108977536bd969ccba903bf01a98d7d9c	refs/heads/main
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos/timmy518/dev-workstation | grep -E "\"(full_name|visibility|default_branch|html_url)\""
+  "full_name": "timmy518/dev-workstation",
+    "html_url": "https://github.com/timmy518",
+  "html_url": "https://github.com/timmy518/dev-workstation",
+  "visibility": "public",
+  "default_branch": "main",
+
+# 6) (검토 후 보충) 설정 범위 확인: --global 은 이 Ubuntu(WSL) 사용자에게만 적용되고(~/.gitconfig), Windows 쪽 Git 설정과는 별개다.
+#    우선순위는 --system(/etc/gitconfig) < --global(~/.gitconfig) < --local(.git/config). 아래는 저장소(local) 설정 — VS Code 게시 때 생긴 원격 정보
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --show-scope --list
+global	user.name=timmy518
+global	user.email=timmy518@naver.com
+global	init.defaultbranch=main
+global	core.autocrlf=input
+local	core.repositoryformatversion=0
+local	core.filemode=true
+local	core.bare=false
+local	core.logallrefupdates=true
+local	remote.origin.url=https://github.com/timmy518/dev-workstation.git
+local	remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+local	branch.main.remote=origin
+local	branch.main.merge=refs/heads/main
+

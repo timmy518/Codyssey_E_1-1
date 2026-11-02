@@ -1,0 +1,13 @@
+# 운영체제/에디터가 만드는 파일
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+
+# 비밀 정보는 절대 커밋하지 않는다
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_*

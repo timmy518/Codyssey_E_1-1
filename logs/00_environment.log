@@ -1,0 +1,92 @@
+# [1] Windows 쪽 — PowerShell 에서 확인 (PS> 뒤가 명령, 그 아래가 출력)
+PS> (Get-CimInstance Win32_OperatingSystem).Caption
+Microsoft Windows 11 Home Single Language
+
+PS> Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' DisplayVersion
+25H2
+
+PS> wsl --version
+WSL 버전: 3.0.3.0
+커널 버전: 6.18.54.1-1
+WSLg 버전: 1.0.79
+MSRDC 버전: 1.2.7391
+Direct3D 버전: 1.611.1-81528511
+DXCore 버전: 10.0.26100.1-240331-1435.ge-release
+Windows 버전: 10.0.26200.9711
+
+PS> wsl -l -v
+  NAME            STATE           VERSION
+* Ubuntu-24.04    Running         2
+
+PS> (Get-AppxPackage Microsoft.WindowsTerminal).Version
+1.24.12741.0
+
+PS> code --version
+1.143.1
+e646868227c3e3a9e3f24277c8c7220be42c0be7
+x64
+
+# [2] Ubuntu(WSL) 쪽 — bash 에서 확인
+timmy518@AISiLa:~$ grep -E "^(PRETTY_NAME|VERSION_CODENAME)=" /etc/os-release
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+VERSION_CODENAME=noble
+
+timmy518@AISiLa:~$ uname -r
+6.18.54.1-microsoft-standard-WSL2
+
+timmy518@AISiLa:~$ echo $BASH_VERSION
+5.2.21(1)-release
+
+timmy518@AISiLa:~$ wslinfo --networking-mode
+nat
+
+timmy518@AISiLa:~$ ps -p 1 -o comm=
+systemd
+
+timmy518@AISiLa:~$ docker --version
+Docker version 29.9.2, build a82e528
+
+timmy518@AISiLa:~$ git --version
+git version 2.43.0
+
+# [3] 실습 환경 초기화 — 문서 검토 후 02, 04~10, 12 를 처음부터 다시 기록하기 위해,
+#     앞선 실습에서 만든 컨테이너·이미지·볼륨·빌드 캐시·실습 파일을 정리한다 (이후 로그 02, 04~10, 12 는 이 상태에서 순서대로 기록)
+timmy518@AISiLa:~$ docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+NAMES           IMAGE         STATUS
+web-bind        my-web:1.0    Up About a minute (healthy)
+web-8081        my-web:1.0    Up About a minute (healthy)
+web-8080        my-web:1.0    Up About a minute (healthy)
+brave_greider   hello-world   Exited (0) 2 minutes ago
+
+timmy518@AISiLa:~$ docker rm -f $(docker ps -aq)
+07eb71562386
+6b3d8eb83139
+5c3fc423df38
+a75d1a30bbf1
+
+timmy518@AISiLa:~$ docker rmi my-web:1.0 nginx:1.30.6-alpine nginx:stable-alpine ubuntu:24.04 hello-world
+Untagged: my-web:1.0
+Deleted: sha256:c7b1ef9b7f2bf622face37cb579173673b8421f74104122169ecbd89a7c3f8fb
+Untagged: nginx:1.30.6-alpine
+Untagged: nginx:stable-alpine
+Deleted: sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+Untagged: ubuntu:24.04
+Deleted: sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+Untagged: hello-world:latest
+Deleted: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
+
+timmy518@AISiLa:~$ docker volume rm web-data
+web-data
+
+timmy518@AISiLa:~$ docker builder prune -af | tail -n 1
+Total:	92.73MB
+
+timmy518@AISiLa:~$ rm -rf ~/codyssey/practice/perm_file.txt ~/codyssey/practice/perm_dir ~/codyssey/practice/hello.sh ~/codyssey/practice/bind-site
+
+timmy518@AISiLa:~$ docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          0         0         0B        0B
+Containers      0         0         0B        0B
+Local Volumes   0         0         0B        0B
+Build Cache     0         0         0B        0B
+

@@ -1,0 +1,84 @@
+# 1) 볼륨 생성 / 목록 / 상세 정보 (Mountpoint = Docker 가 관리하는 실제 저장 위치)
+timmy518@AISiLa:~$ docker volume create web-data
+web-data
+
+timmy518@AISiLa:~$ docker volume ls
+DRIVER    VOLUME NAME
+local     web-data
+
+timmy518@AISiLa:~$ docker volume inspect web-data
+[
+    {
+        "CreatedAt": "2026-11-02T14:50:51+09:00",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/web-data/_data",
+        "Name": "web-data",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+
+# 2) 볼륨을 /data 에 연결한 컨테이너에서 데이터 쓰기
+timmy518@AISiLa:~$ docker run -d --name vol-writer -v web-data:/data ubuntu:24.04 sleep infinity
+c272558aef411459b627ad3c9c732eb328c852e3647eac4e4a5777e4481fcb64
+
+timmy518@AISiLa:~$ docker exec vol-writer sh -c 'echo "written by vol-writer at $(date +%F_%T)" > /data/note.txt && cat /data/note.txt'
+written by vol-writer at 2026-11-02_05:50:51
+
+# 3) 컨테이너 삭제 전/후 비교 — 컨테이너는 사라져도 볼륨은 남아 있다
+timmy518@AISiLa:~$ docker ps -a --filter name=vol- --format "table {{.Names}}\t{{.Status}}\t{{.Mounts}}"
+NAMES        STATUS                  MOUNTS
+vol-writer   Up Less than a second   web-data
+
+timmy518@AISiLa:~$ docker rm -f vol-writer
+vol-writer
+
+timmy518@AISiLa:~$ docker ps -a --filter name=vol- --format "table {{.Names}}\t{{.Status}}\t{{.Mounts}}"
+NAMES     STATUS    MOUNTS
+
+timmy518@AISiLa:~$ docker volume ls
+DRIVER    VOLUME NAME
+local     web-data
+
+# 4) 새 컨테이너에 같은 볼륨을 연결 → 이전 컨테이너가 쓴 데이터가 그대로 있다
+timmy518@AISiLa:~$ docker run -d --name vol-reader -v web-data:/data ubuntu:24.04 sleep infinity
+edb1c5c803f3bcb4907328eacc2b70b1b9aaf826bb9f1235700ec776dbea5ae3
+
+timmy518@AISiLa:~$ docker exec vol-reader cat /data/note.txt
+written by vol-writer at 2026-11-02_05:50:51
+
+timmy518@AISiLa:~$ docker exec vol-reader sh -c 'echo "appended by vol-reader" >> /data/note.txt && cat /data/note.txt'
+written by vol-writer at 2026-11-02_05:50:51
+appended by vol-reader
+
+timmy518@AISiLa:~$ docker rm -f vol-reader
+vol-reader
+
+# 5) 비교 실험: 볼륨 없이 컨테이너 자신의 쓰기 층(writable layer)에만 쓴 데이터
+timmy518@AISiLa:~$ docker run --name no-volume ubuntu:24.04 sh -c 'echo temp-data > /tmp/temp.txt && cat /tmp/temp.txt'
+temp-data
+
+#    멈춘(Exited) 컨테이너 안에는 아직 남아 있다 (docker diff: A = 추가된 파일, C = 바뀐 디렉토리)
+timmy518@AISiLa:~$ docker diff no-volume
+C /tmp
+A /tmp/temp.txt
+
+#    새 컨테이너는 이미지에서 빈 쓰기 층으로 시작하므로 보이지 않는다 (컨테이너끼리 공유되지 않음)
+timmy518@AISiLa:~$ docker run --rm ubuntu:24.04 cat /tmp/temp.txt
+cat: /tmp/temp.txt: No such file or directory
+[exit code: 1]
+
+#    컨테이너를 지우면 그 쓰기 층과 안의 데이터도 함께 삭제된다
+timmy518@AISiLa:~$ docker rm no-volume
+no-volume
+
+timmy518@AISiLa:~$ docker diff no-volume
+Error response from daemon: No such container: no-volume
+[exit code: 1]
+
+# 6) 볼륨 데이터는 볼륨이 남아 있는 한 언제든 다시 확인할 수 있다
+timmy518@AISiLa:~$ docker run --rm -v web-data:/data ubuntu:24.04 ls -l /data
+total 4
+-rw-r--r-- 1 root root 68 Nov  2 05:50 note.txt
+

@@ -1,0 +1,35 @@
+# [7-3 재현] Windows 드라이브(/mnt/c)에서 가져온 파일에 실행 권한이 붙는 문제
+# 1) /mnt/c 가 어떻게 연결되어 있는지 확인 (drvfs, metadata 옵션 없음)
+timmy518@AISiLa:~$ mount | grep " /mnt/c "
+C:\ on /mnt/c type 9p (rw,noatime,aname=drvfs;path=C:\;uid=1000;gid=1000;symlinkroot=/mnt/,cache=0x5,access=client,msize=65536,trans=fd,rfd=19,wfd=19)
+
+# 2) Windows 쪽 공용 폴더에 시험용 파일을 만들고 권한 확인 → 리눅스 권한 정보가 없어 777 로 보인다
+timmy518@AISiLa:~$ echo "made on the Windows drive" > /mnt/c/Users/Public/drvfs_test.txt
+
+timmy518@AISiLa:~$ ls -l /mnt/c/Users/Public/drvfs_test.txt
+-rwxrwxrwx 1 timmy518 timmy518 26 Nov  2  2026 /mnt/c/Users/Public/drvfs_test.txt
+
+# 3) 리눅스 홈 쪽으로 복사하면 777 에 umask(022)가 적용되어 755 가 된다 → 일반 파일인데 실행 권한(x)이 붙음
+timmy518@AISiLa:~$ cp /mnt/c/Users/Public/drvfs_test.txt ~/drvfs_copy_test.txt && ls -l ~/drvfs_copy_test.txt
+-rwxr-xr-x 1 timmy518 timmy518 26 Nov  2 14:50 /home/timmy518/drvfs_copy_test.txt
+
+# 4) 해결: 복사한 뒤 일반 파일 권한(644)으로 정리하거나, install -m 644 로 권한을 정해서 복사
+timmy518@AISiLa:~$ chmod 644 ~/drvfs_copy_test.txt && ls -l ~/drvfs_copy_test.txt
+-rw-r--r-- 1 timmy518 timmy518 26 Nov  2 14:50 /home/timmy518/drvfs_copy_test.txt
+
+timmy518@AISiLa:~$ install -m 644 /mnt/c/Users/Public/drvfs_test.txt ~/drvfs_install_test.txt && ls -l ~/drvfs_install_test.txt
+-rw-r--r-- 1 timmy518 timmy518 26 Nov  2 14:50 /home/timmy518/drvfs_install_test.txt
+
+# 5) 시험용 파일 정리
+timmy518@AISiLa:~$ rm /mnt/c/Users/Public/drvfs_test.txt ~/drvfs_copy_test.txt ~/drvfs_install_test.txt
+
+# [7-6 재현] PowerShell 에서 wsl 로 넘긴 명령의 $변수가 언제 풀리는지 확인 (PS> 는 Windows PowerShell)
+#   PowerShell 에서는 백틱(`)으로 $ 를 막아 $x 를 글자 그대로 넘겼다.
+#   wsl -- (기본 리눅스 셸을 거침): 그 셸이 큰따옴표 안의 $x 를 안쪽 bash 보다 먼저 빈 값으로 풀어 [] 가 된다
+#   wsl -e (기본 셸을 거치지 않음): 안쪽 bash 가 x=1 다음에 $x 를 풀어 [1] 이 된다
+PS> wsl -d Ubuntu-24.04 -- bash -c "x=1; echo [`$x]"
+[]
+
+PS> wsl -d Ubuntu-24.04 -e bash -c "x=1; echo [`$x]"
+[1]
+

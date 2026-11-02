@@ -1,0 +1,36 @@
+# 이 파일은 템플릿이다.
+# 공식 nginx 이미지는 컨테이너가 시작될 때 /etc/nginx/templates/*.template 파일을 envsubst 로 처리해서
+# /etc/nginx/conf.d/ 아래에 실제 설정 파일을 만든다.
+# 이때 '컨테이너에 실제로 있는 환경 변수' 이름만 값으로 바뀐다 (아래의 APP_ENV 자리 → dev 또는 prod).
+# $hostname, $uri 는 그런 이름의 환경 변수가 없어서 그대로 남고, 요청을 처리할 때 nginx 가 값을 채운다.
+# (중괄호 유무와는 상관없다. nginx 변수와 같은 이름의 환경 변수를 만들면 설정이 깨질 수 있으니 주의)
+
+server {
+    listen       80;
+    listen  [::]:80;
+    server_name  localhost;
+
+    # 어떤 컨테이너가 응답했는지 헤더로 표시 (컨테이너 hostname = 컨테이너 ID 앞 12자리)
+    add_header X-Served-By $hostname always;
+    add_header X-App-Env "${APP_ENV}" always;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # 헬스체크용 엔드포인트 (Dockerfile의 HEALTHCHECK가 호출)
+    location = /health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # 실행 정보: 환경 변수 APP_ENV 값과 응답한 컨테이너 hostname
+    location = /info {
+        default_type application/json;
+        return 200 '{"app":"dev-workstation","version":"1.0","env":"${APP_ENV}","served_by":"$hostname"}\n';
+    }
+}

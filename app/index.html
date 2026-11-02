@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Workstation</title>
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      background: var(--bg); color: var(--text);
+      font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    }
+    main {
+      width: min(640px, 92vw); background: var(--card); border-radius: 16px;
+      padding: 40px; box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+    }
+    h1 { margin: 12px 0 8px; font-size: 28px; }
+    .badge {
+      display: inline-block; padding: 4px 10px; border-radius: 999px;
+      background: rgba(56, 189, 248, .15); color: var(--accent); font-size: 13px; font-weight: 600;
+    }
+    p { color: var(--muted); line-height: 1.6; }
+    ul { padding-left: 20px; line-height: 1.9; }
+    a { color: var(--accent); }
+    code { background: rgba(148, 163, 184, .15); padding: 2px 6px; border-radius: 6px; }
+    footer { margin-top: 24px; font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="badge">v1.0 · custom nginx image</span>
+    <h1>개발자 작업실이 열렸습니다</h1>
+    <p>
+      이 페이지는 Docker 컨테이너 안의 NGINX가 보내주는 정적 페이지입니다.
+      내 PC(호스트)의 포트가 컨테이너의 80번 포트로 연결되어 있어서 브라우저에서 볼 수 있습니다.
+    </p>
+    <ul>
+      <li>이미지: <code>my-web:1.0</code> (베이스: 공식 <code>nginx</code> Alpine 이미지)</li>
+      <li>헬스체크: <a href="/health"><code>/health</code></a></li>
+      <li>실행 정보: <a href="/info"><code>/info</code></a> (환경 변수 APP_ENV, 응답한 컨테이너)</li>
+    </ul>
+    <footer>Codyssey Pre-course · Dev Workstation Mission · timmy518</footer>
+  </main>
+</body>
+</html>

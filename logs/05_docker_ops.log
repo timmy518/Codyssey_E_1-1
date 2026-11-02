@@ -1,0 +1,104 @@
+# 1) 이미지 다운로드(pull) 와 목록 확인(images)
+timmy518@AISiLa:~$ docker pull ubuntu:24.04
+24.04: Pulling from library/ubuntu
+7a48b8f0e5c7: Pulling fs layer
+7a48b8f0e5c7: Download complete
+98144013299c: Download complete
+7a48b8f0e5c7: Pull complete
+Digest: sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+Status: Downloaded newer image for ubuntu:24.04
+docker.io/library/ubuntu:24.04
+
+timmy518@AISiLa:~$ docker pull nginx:stable-alpine
+stable-alpine: Pulling from library/nginx
+5b8cb54cfa40: Pulling fs layer
+885725a63a7c: Pulling fs layer
+bb658a254196: Pulling fs layer
+81b64ae234ef: Pulling fs layer
+7b229517ed22: Pulling fs layer
+e125989d16f0: Pulling fs layer
+f19a2d3b6951: Pulling fs layer
+9f0afb44f10e: Pulling fs layer
+9f0afb44f10e: Download complete
+f19a2d3b6951: Download complete
+7b229517ed22: Download complete
+e125989d16f0: Download complete
+81b64ae234ef: Download complete
+885725a63a7c: Download complete
+bb658a254196: Download complete
+7b229517ed22: Pull complete
+5b8cb54cfa40: Download complete
+9f0afb44f10e: Pull complete
+f19a2d3b6951: Pull complete
+e125989d16f0: Pull complete
+81b64ae234ef: Pull complete
+885725a63a7c: Pull complete
+bb658a254196: Pull complete
+4675ff125325: Download complete
+91e3d1cf855d: Download complete
+5b8cb54cfa40: Pull complete
+Digest: sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+Status: Downloaded newer image for nginx:stable-alpine
+docker.io/library/nginx:stable-alpine
+
+timmy518@AISiLa:~$ docker images
+IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
+nginx:stable-alpine   0e52bd054126       93.5MB           27MB        
+ubuntu:24.04          fe81560990fa        119MB         31.7MB        
+
+# 2) 컨테이너 목록 — docker ps 는 실행 중인 것만, docker ps -a 는 종료된 것까지 전부
+timmy518@AISiLa:~$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+timmy518@AISiLa:~$ docker ps -a
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+# 3) 컨테이너 실행(-d: 백그라운드) → 목록 확인
+timmy518@AISiLa:~$ docker run -d --name ops-web nginx:stable-alpine
+059b738907b42f62670a9c125ad58a7849873d0a62d709ef722ee0f0b146c59f
+
+timmy518@AISiLa:~$ docker ps
+CONTAINER ID   IMAGE                 COMMAND                  CREATED        STATUS                  PORTS     NAMES
+059b738907b4   nginx:stable-alpine   "/docker-entrypoint.…"   1 second ago   Up Less than a second   80/tcp    ops-web
+
+# 4) 로그 확인 — 요청을 하나 보내고(컨테이너 안에서 wget) 접근 로그가 찍히는지 본다
+timmy518@AISiLa:~$ docker exec ops-web wget -qO- http://127.0.0.1 | grep -o "<title>.*</title>"
+<title>Welcome to nginx!</title>
+
+timmy518@AISiLa:~$ docker logs --tail 5 ops-web
+2026/11/02 05:49:27 [notice] 1#1: start worker process 38
+2026/11/02 05:49:27 [notice] 1#1: start worker process 39
+2026/11/02 05:49:27 [notice] 1#1: start worker process 40
+2026/11/02 05:49:27 [notice] 1#1: start worker process 41
+127.0.0.1 - - [02/Nov/2026:05:49:27 +0000] "GET / HTTP/1.1" 200 896 "-" "Wget" "-"
+
+# 5) 리소스 사용량 확인 (--no-stream: 한 번만 찍고 종료)
+timmy518@AISiLa:~$ docker stats --no-stream ops-web
+CONTAINER ID   NAME      CPU %     MEM USAGE / LIMIT     MEM %     NET I/O      BLOCK I/O     PIDS
+059b738907b4   ops-web   0.00%     11.35MiB / 7.602GiB   0.15%     486B / 84B   0B / 8.19kB   13
+
+# 6) 중지(stop) → ps 에서는 사라지고 ps -a 에서는 Exited 로 보인다 → 다시 시작(start)
+timmy518@AISiLa:~$ docker stop ops-web
+ops-web
+
+timmy518@AISiLa:~$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+timmy518@AISiLa:~$ docker ps -a
+CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS                              PORTS     NAMES
+059b738907b4   nginx:stable-alpine   "/docker-entrypoint.…"   2 seconds ago   Exited (0) Less than a second ago             ops-web
+
+timmy518@AISiLa:~$ docker start ops-web
+ops-web
+
+timmy518@AISiLa:~$ docker ps
+CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS                  PORTS     NAMES
+059b738907b4   nginx:stable-alpine   "/docker-entrypoint.…"   2 seconds ago   Up Less than a second   80/tcp    ops-web
+
+# 7) 정리 (rm -f: 실행 중이어도 강제로 중지 후 삭제)
+timmy518@AISiLa:~$ docker rm -f ops-web
+ops-web
+
+timmy518@AISiLa:~$ docker ps -a
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
