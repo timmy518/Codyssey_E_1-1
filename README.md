@@ -95,7 +95,7 @@ git version 2.43.0
 - [x] GitHub / VS Code 연동 — VS Code(WSL 모드)에서 GitHub 로그인 후 공개 저장소로 게시(캡처 2장), 최종본은 VS Code 터미널의 `git push`로 이 저장소에 올림 → [5.11](#511-git-설정과-github--vs-code-연동)
 - [x] 실행 환경 기록 — Windows(PowerShell)·Ubuntu(bash)에서 OS·WSL·셸·터미널·Docker·Git·VS Code 버전 확인 → [2](#2-실행-환경)
 - [x] 트러블슈팅 6건(문제 → 원인 가설 → 확인 → 해결/대안) — WSL 설치·시작, 파일 실행 권한, 포트 충돌, VS Code 로그인, PowerShell에서 WSL로 명령 전달 → [7](#7-트러블슈팅)
-- [x] 민감정보 점검 — 파일·커밋 히스토리에서 토큰·개인키 모양 검색 0건, 원격 주소에 토큰 없음, 스크린샷 6장 확인 → [8](#8-보안개인정보-처리)
+- [x] 민감정보 점검 — 파일·커밋 히스토리에서 토큰·개인키 모양 검색 0건, 원격 주소에 토큰 없음, 스크린샷 8장 확인 → [8](#8-보안개인정보-처리)
 
 ---
 
@@ -762,7 +762,7 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
 - `git remote -v`: 원격 `origin`이 제출 저장소 `Codyssey_E_1-1`이고, 주소에 토큰이 없습니다.
 - `git status -sb`의 `M`(고친 파일)·`??`(새 파일)은 이 기록 뒤에 커밋 하나로 함께 올린 파일입니다.
 - `git log`의 `(HEAD -> main, origin/main)`과 `git ls-remote`의 `baf1d6b…` → 기록할 때 GitHub의 `main`이 로컬 커밋 `baf1d6b`와 같았습니다(`d89fb8c Initial commit`은 GitHub 웹에서 저장소를 만들 때 생긴 커밋).
-- `git reflog`의 `update by push`(16:49:28) → 그 시각에 로컬에서 `git push`로 올린 기록입니다. 이 기록 뒤에 README 수정본을 커밋 하나로 더 올렸으므로, 지금 GitHub의 최신 커밋은 `baf1d6b` 다음 커밋입니다.
+- `git reflog`의 `update by push`(16:49:28) → 그 시각에 로컬에서 `git push`로 올린 기록입니다. 이 기록 뒤에 README 수정본을 커밋으로 더 올렸으므로, 지금 GitHub의 최신 커밋은 `baf1d6b` 이후에 올린 커밋입니다.
 
 전체 로그: [`logs/11_git.log`](logs/11_git.log)
 
