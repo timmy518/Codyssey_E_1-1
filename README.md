@@ -38,18 +38,16 @@ Codyssey 입학연수 미션 수행 기록입니다. Windows 11 PC에 WSL2(Windo
 
 ## 2. 실행 환경
 
-| 항목 | 값 | 확인 명령 |
-|---|---|---|
-| 호스트 OS | Windows 11 Home Single Language 25H2 (빌드 10.0.26200.9711) | `(Get-CimInstance Win32_OperatingSystem).Caption`, `Get-ItemPropertyValue … DisplayVersion`, `wsl --version` |
-| WSL | WSL 3.0.3.0, `Ubuntu-24.04`를 VERSION 2(WSL2)로 실행, 네트워크 모드 `nat` | `wsl --version`, `wsl -l -v`, `wslinfo --networking-mode` |
-| 커널 | 6.18.54.1-microsoft-standard-WSL2 | `uname -r` |
-| 배포판 | Ubuntu 24.04.5 LTS (noble) | `grep -E … /etc/os-release` |
-| init (PID 1) | systemd (Docker 서비스를 `systemctl`로 관리) | `ps -p 1 -o comm=` |
-| 셸 | bash 5.2.21(1)-release | `echo $BASH_VERSION` |
-| 터미널 | Windows Terminal 1.24.12741.0, VS Code 통합 터미널 | `(Get-AppxPackage Microsoft.WindowsTerminal).Version` |
-| Docker | Docker Engine - Community 29.9.2 (Client·Server). Docker Desktop이 아니라 Ubuntu 안에 공식 apt 저장소로 설치 | `docker --version`, `docker version`, `docker info` ([04 로그](logs/04_docker_check.log)) |
-| Git | 2.43.0 | `git --version` |
-| VS Code | 1.143.1 (x64), WSL 모드로 Ubuntu에 연결(`WSL: Ubuntu-24.04`) | `code --version`, [5.11 캡처](#511-git-설정과-github--vs-code-연동) |
+- **호스트 OS**: Windows 11 Home Single Language 25H2 (빌드 10.0.26200.9711) — 확인: `(Get-CimInstance Win32_OperatingSystem).Caption`, `Get-ItemPropertyValue … DisplayVersion`, `wsl --version`
+- **WSL**: WSL 3.0.3.0, `Ubuntu-24.04`를 VERSION 2(WSL2)로 실행, 네트워크 모드 `nat` — 확인: `wsl --version`, `wsl -l -v`, `wslinfo --networking-mode`
+- **커널**: 6.18.54.1-microsoft-standard-WSL2 — 확인: `uname -r`
+- **배포판**: Ubuntu 24.04.5 LTS (noble) — 확인: `grep -E … /etc/os-release`
+- **init (PID 1)**: systemd (Docker 서비스를 `systemctl`로 관리) — 확인: `ps -p 1 -o comm=`
+- **셸**: bash 5.2.21(1)-release — 확인: `echo $BASH_VERSION`
+- **터미널**: Windows Terminal 1.24.12741.0, VS Code 통합 터미널 — 확인: `(Get-AppxPackage Microsoft.WindowsTerminal).Version`
+- **Docker**: Docker Engine - Community 29.9.2 (Client·Server). Docker Desktop이 아니라 Ubuntu 안에 공식 apt 저장소로 설치 — 확인: `docker --version`, `docker version`, `docker info` ([04 로그](logs/04_docker_check.log))
+- **Git**: 2.43.0 — 확인: `git --version`
+- **VS Code**: 1.143.1 (x64), WSL 모드로 Ubuntu에 연결(`WSL: Ubuntu-24.04`) — 확인: `code --version`, [5.11 캡처](#511-git-설정과-github--vs-code-연동)
 
 ```bash
 PS> wsl -l -v  # VERSION 2 = WSL2
@@ -114,7 +112,7 @@ Codyssey_E_1-1/                       # 작성자 PC에서는 ~/codyssey/dev-wor
 │   ├── 01_terminal.log ~ 11_git.log  # 5.1 ~ 5.11 (번호 = 절 번호, 08에는 7-4도 있음)
 │   ├── 12_troubleshooting.log        # 7-3 재현, 7-6 (b) 원인 확인
 │   └── 13_secret_check.log           # 8장 민감정보 점검
-└── docs/images/                      # 캡처 8장: 01·06 터미널(5.1·5.6), 08 포트 접속(5.8), 09 바인드 마운트 전/후(5.9), 11 VS Code·GitHub(5.11)
+└── docs/images/                      # 캡처 8장 (5.1·5.6·5.8·5.9·5.11)
 ```
 
 실습 폴더 `~/codyssey/practice`(5.1·5.2·5.9)는 저장소 밖에 두어 커밋하지 않았습니다.
@@ -199,10 +197,10 @@ drwxr-xr-x 2 timmy518 timmy518 4096 Nov  2 13:46 docs
 > **macOS에서 따라 할 때** — macOS의 `stat`(BSD 판)에는 `-c`가 없으므로 `stat -f '%Sp (%OLp) %N' 파일`(소유자까지는 `stat -f '%Sp (%OLp) %Su:%Sg %N' 파일`)을 쓰면 같은 모양으로 나옵니다. 디렉토리 실험은 root가 아닌 일반 사용자로 해야 거부가 재현됩니다(root는 권한 검사를 건너뜀).
 
 ```bash
-timmy518@AISiLa:~/codyssey/practice$ umask  # 새로 만들 때 끌 권한 비트(022 = 그룹·기타의 w): 파일 666→644, 디렉토리 777→755
+timmy518@AISiLa:~/codyssey/practice$ umask  # 그룹·기타 w 끔: 새 파일 666→644, 새 디렉토리 777→755
 0022
 ...
-timmy518@AISiLa:~/codyssey/practice$ stat -c '%A (%a) %U:%G %n' perm_file.txt hello.sh perm_dir  # 변경 전
+timmy518@AISiLa:~/codyssey/practice$ stat -c '%A (%a) %U:%G %n' perm_file.txt hello.sh perm_dir
 -rw-r--r-- (644) timmy518:timmy518 perm_file.txt
 -rw-r--r-- (644) timmy518:timmy518 hello.sh
 drwxr-xr-x (755) timmy518:timmy518 perm_dir
@@ -381,7 +379,7 @@ timmy518@AISiLa:~$ docker run hello-world  # 로컬에 없는 이미지는 받�
 ...
 Hello from Docker!
 ...
-timmy518@AISiLa:~$ docker run -it --name ubuntu-shell ubuntu:24.04 bash  # 컨테이너 안의 bash로 들어감
+timmy518@AISiLa:~$ docker run -it --name ubuntu-shell ubuntu:24.04 bash  # 컨테이너 안으로
 root@5392105b2b32:/# ls
 bin   dev  home  lib64  mnt  proc  run   srv  tmp  var
 boot  etc  lib   media  opt  root  sbin  sys  usr
@@ -441,16 +439,16 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1/health || exit 1
 ```
 
-| 커스텀 포인트 | Dockerfile / 파일 | 목적 |
-|---|---|---|
-| 베이스 버전 고정 | `FROM nginx:1.30.6-alpine` | 공식 웹 서버 이미지를 그대로 씁니다. 태그를 고정해 언제 빌드해도 NGINX 1.30.6이 들어가고, Alpine 리눅스 기반이라 가볍습니다 |
-| 정적 페이지 교체 | `COPY app/ /usr/share/nginx/html/` | 기본 "Welcome to nginx!" 페이지 대신 내 페이지([`app/index.html`](app/index.html))를 웹 루트에 넣습니다 |
-| nginx 설정 교체 | `COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template` | [`nginx/default.conf.template`](nginx/default.conf.template)으로 `/health`(`ok`)·`/info`(실행 정보 JSON) 경로와 `X-Served-By`(응답한 컨테이너)·`X-App-Env` 응답 헤더를 더합니다. 컨테이너가 시작될 때 공식 이미지가 템플릿의 `${APP_ENV}`를 환경 변수 값으로 바꿔 `/etc/nginx/conf.d/default.conf`를 만듭니다 |
-| 실행 모드 | `ENV APP_ENV=dev` | 기본값을 넣어 두고, 실행할 때 `-e APP_ENV=prod`로 다시 빌드하지 않고 바꿉니다([5.8](#58-포트-매핑과-접속-증거)의 `web-8081`) |
-| 메타데이터 | `LABEL org.opencontainers.image.*` | 제목·설명·작성자를 이미지에 기록합니다(`docker image inspect`로 확인). 이미지 이름 `my-web:1.0`은 `docker build -t`로 붙입니다 |
-| 포트 문서화 | `EXPOSE 80` | 컨테이너가 80번에서 요청을 받는다는 기록일 뿐 포트를 열지 않습니다. 실제 연결은 `docker run -p`로 합니다 |
-| 헬스체크 | `HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3` | 10초마다 컨테이너 안에서 `/health`를 호출해, 정상이면 `docker ps`에 `(healthy)`, 3번 연속 실패하면 `unhealthy`로 표시합니다(재시작은 하지 않음) |
-| 빌드 제외 | [`.dockerignore`](.dockerignore) | 빌드 컨텍스트(`docker build` 끝의 `.`, Docker에 보내는 빌드 재료)에서 `.git`·`README.md`·`docs/`·`logs/` 등과 비밀 파일 패턴(`**/.env`, `**/.env.*`, `**/*.pem`, `**/*.key`, `**/id_*`)을 빼서, 이미지와 웹 루트에 들어가지 않게 합니다 |
+**커스텀 포인트와 목적**
+
+- **베이스 버전 고정** (`FROM nginx:1.30.6-alpine`) — 공식 웹 서버 이미지를 그대로 씁니다. 태그를 고정해 언제 빌드해도 NGINX 1.30.6이 들어가고, Alpine 리눅스 기반이라 가볍습니다.
+- **정적 페이지 교체** (`COPY app/ /usr/share/nginx/html/`) — 기본 "Welcome to nginx!" 페이지 대신 내 페이지([`app/index.html`](app/index.html))를 웹 루트에 넣습니다.
+- **nginx 설정 교체** (`COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template`) — [`nginx/default.conf.template`](nginx/default.conf.template)으로 `/health`(`ok`)·`/info`(실행 정보 JSON) 경로와 `X-Served-By`(응답한 컨테이너)·`X-App-Env` 응답 헤더를 더합니다. 컨테이너가 시작될 때 공식 이미지가 템플릿의 `${APP_ENV}`를 환경 변수 값으로 바꿔 `/etc/nginx/conf.d/default.conf`를 만듭니다.
+- **실행 모드** (`ENV APP_ENV=dev`) — 기본값을 넣어 두고, 실행할 때 `-e APP_ENV=prod`로 다시 빌드하지 않고 바꿉니다([5.8](#58-포트-매핑과-접속-증거)의 `web-8081`).
+- **메타데이터** (`LABEL org.opencontainers.image.*`) — 제목·설명·작성자를 이미지에 기록합니다(`docker image inspect`로 확인). 이미지 이름 `my-web:1.0`은 `docker build -t`로 붙입니다.
+- **포트 문서화** (`EXPOSE 80`) — 컨테이너가 80번에서 요청을 받는다는 기록일 뿐 포트를 열지 않습니다. 실제 연결은 `docker run -p`로 합니다.
+- **헬스체크** (`HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3`) — 10초마다 컨테이너 안에서 `/health`를 호출해, 정상이면 `docker ps`에 `(healthy)`, 3번 연속 실패하면 `unhealthy`로 표시합니다(재시작은 하지 않음).
+- **빌드 제외** ([`.dockerignore`](.dockerignore)) — 빌드 컨텍스트(`docker build` 끝의 `.`, Docker에 보내는 빌드 재료)에서 `.git`·`README.md`·`docs/`·`logs/` 등과 비밀 파일 패턴(`**/.env`, `**/.env.*`, `**/*.pem`, `**/*.key`, `**/id_*`)을 빼서, 이미지와 웹 루트에 들어가지 않게 합니다.
 
 **빌드와 결과 확인** — 베이스 원본의 기본 페이지를 본 뒤 `-t my-web:1.0`(이름:태그)으로 빌드하고, 같은 경로의 페이지를 커스텀 이미지에서 다시 확인했습니다.
 
@@ -498,16 +496,16 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ docker run --rm my-web:1.0 cat /usr/
 
 **① 매핑 없이 실행 — 컨테이너는 정상이지만 `localhost`로는 닿지 않음**
 
-```bash
+```text
 timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-noport my-web:1.0
 761bdf2c30eec1495656bbd98ba13b9435ef51c366e859632409928d88d53503
 timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps --filter name=web-noport --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 NAMES        STATUS                                     PORTS
 web-noport   Up Less than a second (health: starting)   80/tcp
-timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS --max-time 3 http://localhost:80  # 호스트의 localhost:80
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS --max-time 3 http://localhost:80
 curl: (7) Failed to connect to localhost port 80 after 0 ms: Couldn't connect to server
 [exit code: 7]
-timmy518@AISiLa:~/codyssey/dev-workstation$ docker exec web-noport wget -qO- http://127.0.0.1/health  # 컨테이너 안에서
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker exec web-noport wget -qO- http://127.0.0.1/health
 ok
 ```
 
@@ -530,7 +528,7 @@ web-8080   my-web:1.0   Up 15 seconds (healthy)   0.0.0.0:8080->80/tcp, [::]:808
 timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:8080 | grep -E "<title>|<h1>"
   <title>Dev Workstation</title>
     <h1>개발자 작업실이 열렸습니다</h1>
-timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS -i http://localhost:8080/health  # -i: 응답 헤더도 출력
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS -i http://localhost:8080/health  # 헤더 포함
 HTTP/1.1 200 OK
 ...
 X-Served-By: 5a2248b15e0e
@@ -582,12 +580,12 @@ bind: /home/timmy518/codyssey/practice/bind-site -> /usr/share/nginx/html
 timmy518@AISiLa:~/codyssey/practice$ curl -sS http://localhost:8082  # [변경 전]
 <h1>Bind Mount v1</h1>
 <p>host file: ~/codyssey/practice/bind-site/index.html</p>
-timmy518@AISiLa:~/codyssey/practice$ sed -i 's/v1/v2 (edited on host)/' bind-site/index.html  # 호스트에서 파일만 수정
+timmy518@AISiLa:~/codyssey/practice$ sed -i 's/v1/v2 (edited on host)/' bind-site/index.html
 ...
 timmy518@AISiLa:~/codyssey/practice$ curl -sS http://localhost:8082  # [변경 후]
 <h1>Bind Mount v2 (edited on host)</h1>
 <p>host file: ~/codyssey/practice/bind-site/index.html</p>
-timmy518@AISiLa:~/codyssey/practice$ docker exec web-bind cat /usr/share/nginx/html/index.html  # 컨테이너 안의 파일
+timmy518@AISiLa:~/codyssey/practice$ docker exec web-bind cat /usr/share/nginx/html/index.html
 <h1>Bind Mount v2 (edited on host)</h1>
 <p>host file: ~/codyssey/practice/bind-site/index.html</p>
 timmy518@AISiLa:~/codyssey/practice$ docker ps --filter name=web-bind --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -627,7 +625,7 @@ timmy518@AISiLa:~$ docker volume inspect web-data  # 실제 저장 위치(Mountp
 ...
         "Mountpoint": "/var/lib/docker/volumes/web-data/_data",
 ...
-timmy518@AISiLa:~$ docker run -d --name vol-writer -v web-data:/data ubuntu:24.04 sleep infinity  # 볼륨을 /data에 연결
+timmy518@AISiLa:~$ docker run -d --name vol-writer -v web-data:/data ubuntu:24.04 sleep infinity
 c272558aef411459b627ad3c9c732eb328c852e3647eac4e4a5777e4481fcb64
 timmy518@AISiLa:~$ docker exec vol-writer sh -c 'echo "written by vol-writer at $(date +%F_%T)" > /data/note.txt && cat /data/note.txt'  # 쓰고 바로 읽기
 written by vol-writer at 2026-11-02_05:50:51
@@ -641,7 +639,7 @@ NAMES     STATUS    MOUNTS
 timmy518@AISiLa:~$ docker volume ls  # 볼륨은 그대로
 DRIVER    VOLUME NAME
 local     web-data
-timmy518@AISiLa:~$ docker run -d --name vol-reader -v web-data:/data ubuntu:24.04 sleep infinity  # 같은 볼륨, 새 컨테이너
+timmy518@AISiLa:~$ docker run -d --name vol-reader -v web-data:/data ubuntu:24.04 sleep infinity
 edb1c5c803f3bcb4907328eacc2b70b1b9aaf826bb9f1235700ec776dbea5ae3
 timmy518@AISiLa:~$ docker exec vol-reader cat /data/note.txt
 written by vol-writer at 2026-11-02_05:50:51
@@ -662,10 +660,10 @@ written by vol-writer at 2026-11-02_05:50:51
 Ubuntu(WSL)의 Git에 사용자 정보와 기본 브랜치를 설정하고 `git config --list`로 확인한 뒤, 첫 커밋을 만들어 VS Code(WSL 모드)에서 GitHub 공개 저장소로 게시했습니다.
 
 ```bash
-timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.name "timmy518"  # 커밋 작성자 이름
-timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.email "timmy518@naver.com"  # 커밋 작성자 이메일
-timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global init.defaultBranch main  # 새 저장소의 첫 브랜치 이름
-timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global core.autocrlf input  # 저장소에 넣을 때 CRLF → LF
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.name "timmy518"
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global user.email "timmy518@naver.com"
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global init.defaultBranch main
+timmy518@AISiLa:~/codyssey/dev-workstation$ git config --global core.autocrlf input
 timmy518@AISiLa:~/codyssey/dev-workstation$ git config --list
 user.name=timmy518
 user.email=timmy518@naver.com
@@ -770,22 +768,44 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
 
 ## 6. 검증 방법 요약
 
-요구사항마다 확인한 명령, 결과, 증거 위치를 모았습니다. 결과 칸의 코드 표기(`…`)는 링크한 로그에 그대로 있는 문구입니다.
+요구사항마다 확인한 명령, 결과, 증거 위치를 모았습니다. 결과의 코드 표기(`…`)는 링크한 로그에 그대로 있는 문구입니다.
 
-| 확인한 것 | 명령 | 결과 | 증거 |
-|---|---|---|---|
-| 실행 환경 | `wsl -l -v`, `grep … /etc/os-release`, `echo $BASH_VERSION`, `docker --version`, `git --version` | `Ubuntu-24.04` VERSION `2`(WSL2), Ubuntu 24.04.5 LTS, bash 5.2.21, Docker 29.9.2, Git 2.43.0 | [00](logs/00_environment.log) |
-| 터미널 조작 | `pwd`, `mkdir -p`, `touch`, `ls`·`ls -la`, `cp`·`cp -r`, `mv`, `rm`·`rmdir`·`rm -r`, `cat`, `cd` | `.hidden_config`는 `ls -la`에서만 보임, `cd`할 때마다 `pwd`로 위치 확인, 최종 `find . \| sort` → `./.hidden_config`, `./docs`, `./docs/greeting.txt` | [01](logs/01_terminal.log), [터미널 화면](docs/images/01_terminal_files.png) |
-| 권한 | `stat -c '%A (%a) %n'`, `chmod 755`·`644`·`600`, `./hello.sh`, `cd perm_dir` | `hello.sh` 644 → `Permission denied`(exit 126), 755 → `hello.sh is running!` / `perm_dir` 644 → `cd`·`cat` 거부, 755로 되돌리자 읽힘 | [02](logs/02_permissions.log) |
-| Docker 설치·점검 | 공식 apt 저장소로 설치, `docker --version`, `docker version`, `docker info`, `systemctl is-active docker containerd` | `apt-get exit code: 0`, `Docker version 29.9.2`, `Server: Docker Engine - Community`(데몬 응답), `active`·`active` | [03](logs/03_docker_install.log), [04](logs/04_docker_check.log) |
-| Docker 운영 | `docker pull`, `images`, `run -d`, `ps`, `ps -a`, `logs`, `stats`, `stop`, `start` | `ubuntu:24.04`·`nginx:stable-alpine` 목록, stop 후 `ps -a`에 `Exited (0)` → start 후 `Up`, logs에 `"GET / HTTP/1.1" 200`, stats `11.35MiB / 7.602GiB` | [05](logs/05_docker_ops.log) |
-| 컨테이너 실습 | `docker run hello-world`, `docker run -it --name ubuntu-shell ubuntu:24.04 bash`, `docker exec -it`, `docker attach` | `Hello from Docker!` / `root@5392105b2b32:/#`에서 `Hello from inside the container` / exec: `my PID is 9`, 나와도 `Up` / attach: `my PID is 1`, Ctrl+P→Ctrl+Q면 `Up`, exit하면 `Exited (0)` | [06](logs/06_containers.log), [hello-world 화면](docs/images/06_hello_world.png) |
-| 커스텀 이미지 | `docker build --progress=plain -t my-web:1.0 .`, `docker image inspect`, `docker run --rm my-web:1.0 cat …` | `naming to docker.io/library/my-web:1.0 done`, 페이지 제목 `Welcome to nginx!` → `Dev Workstation`, 실행하면 `(healthy)` | [07](logs/07_build.log), [08](logs/08_ports.log) |
-| 포트 매핑 | 매핑 없이 `curl`, `-p 8080:80`·`-p 8081:80`으로 실행 후 `curl`, Windows `curl.exe`·브라우저 | `curl: (7)`(exit 7) → `8080 -> HTTP 200`, `8081 -> HTTP 200`, `Windows -> localhost:8080 HTTP 200`, 주소창이 보이는 화면 2장 | [08](logs/08_ports.log), [8080 화면](docs/images/08_port_8080.png), [8081 화면](docs/images/08_port_8081_info.png) |
-| 바인드 마운트 | `-v "$PWD/bind-site":/usr/share/nginx/html`로 실행 → 호스트에서 `sed -i` → `curl http://localhost:8082` | `Bind Mount v1` → `Bind Mount v2 (edited on host)`, `Up 6 seconds (healthy)`(재시작 없음) | [09](logs/09_bind_mount.log), [변경 전](docs/images/09_bind_before.png) / [변경 후](docs/images/09_bind_after.png) |
-| 볼륨 | `docker volume create web-data`, `-v web-data:/data`, `docker rm -f vol-writer` 후 `vol-reader`에서 `cat` | 삭제 후에도 `web-data`가 남고 새 컨테이너에서 `written by vol-writer at 2026-11-02_05:50:51` / 볼륨 없이 쓴 파일은 새 컨테이너에서 `No such file or directory` | [10](logs/10_volume.log) |
-| Git·GitHub | `git config --list`, `git init`, `git ls-remote --heads origin`, GitHub API, `git remote -v`, VS Code 화면 | `user.name=timmy518`, `init.defaultbranch=main` / 첫 게시(`dev-workstation`, 지금은 삭제) 때 원격 `main` = 로컬 `f642393`, `"visibility": "public"` / 제출 저장소(`Codyssey_E_1-1`): 원격 `main` `baf1d6b…` = 로컬 `baf1d6b (HEAD -> main, origin/main)`, `update by push`, `"visibility": "public"`(11의 `# 7)`) | [11](logs/11_git.log), [13](logs/13_secret_check.log), [로그인](docs/images/11_vscode_github_login.png), [게시](docs/images/11_vscode_window.png) |
-| 민감정보 | 비밀값 모양 `grep -rnIE`(파일)·`git log -p --all \| grep -cE`(히스토리), 키워드 `grep`, `credential.helper` 조회, PNG 청크 검사 | 모양 검색 0건, 키워드는 실습 문구 `secret inside`만, `credential.helper` 없음, PNG 8장 `text metadata: none` | [13](logs/13_secret_check.log), [8장](#8-보안개인정보-처리) |
+- **실행 환경** — 증거: [00](logs/00_environment.log)
+  - 명령: `wsl -l -v`, `grep … /etc/os-release`, `echo $BASH_VERSION`, `docker --version`, `git --version`
+  - 결과: `Ubuntu-24.04` VERSION `2`(WSL2), Ubuntu 24.04.5 LTS, bash 5.2.21, Docker 29.9.2, Git 2.43.0
+- **터미널 조작** — 증거: [01](logs/01_terminal.log), [터미널 화면](docs/images/01_terminal_files.png)
+  - 명령: `pwd`, `mkdir -p`, `touch`, `ls`·`ls -la`, `cp`·`cp -r`, `mv`, `rm`·`rmdir`·`rm -r`, `cat`, `cd`
+  - 결과: `.hidden_config`는 `ls -la`에서만 보임, `cd`할 때마다 `pwd`로 위치 확인, 최종 `find . | sort` → `./.hidden_config`, `./docs`, `./docs/greeting.txt`
+- **권한** — 증거: [02](logs/02_permissions.log)
+  - 명령: `stat -c '%A (%a) %n'`, `chmod 755`·`644`·`600`, `./hello.sh`, `cd perm_dir`
+  - 결과: `hello.sh` 644 → `Permission denied`(exit 126), 755 → `hello.sh is running!` / `perm_dir` 644 → `cd`·`cat` 거부, 755로 되돌리자 읽힘
+- **Docker 설치·점검** — 증거: [03](logs/03_docker_install.log), [04](logs/04_docker_check.log)
+  - 명령: 공식 apt 저장소로 설치, `docker --version`, `docker version`, `docker info`, `systemctl is-active docker containerd`
+  - 결과: `apt-get exit code: 0`, `Docker version 29.9.2`, `Server: Docker Engine - Community`(데몬 응답), `active`·`active`
+- **Docker 운영** — 증거: [05](logs/05_docker_ops.log)
+  - 명령: `docker pull`, `images`, `run -d`, `ps`, `ps -a`, `logs`, `stats`, `stop`, `start`
+  - 결과: `ubuntu:24.04`·`nginx:stable-alpine` 목록, stop 후 `ps -a`에 `Exited (0)` → start 후 `Up`, logs에 `"GET / HTTP/1.1" 200`, stats `11.35MiB / 7.602GiB`
+- **컨테이너 실습** — 증거: [06](logs/06_containers.log), [hello-world 화면](docs/images/06_hello_world.png)
+  - 명령: `docker run hello-world`, `docker run -it --name ubuntu-shell ubuntu:24.04 bash`, `docker exec -it`, `docker attach`
+  - 결과: `Hello from Docker!` / `root@5392105b2b32:/#`에서 `Hello from inside the container` / exec: `my PID is 9`, 나와도 `Up` / attach: `my PID is 1`, Ctrl+P→Ctrl+Q면 `Up`, exit하면 `Exited (0)`
+- **커스텀 이미지** — 증거: [07](logs/07_build.log), [08](logs/08_ports.log)
+  - 명령: `docker build --progress=plain -t my-web:1.0 .`, `docker image inspect`, `docker run --rm my-web:1.0 cat …`
+  - 결과: `naming to docker.io/library/my-web:1.0 done`, 페이지 제목 `Welcome to nginx!` → `Dev Workstation`, 실행하면 `(healthy)`
+- **포트 매핑** — 증거: [08](logs/08_ports.log), [8080 화면](docs/images/08_port_8080.png), [8081 화면](docs/images/08_port_8081_info.png)
+  - 명령: 매핑 없이 `curl`, `-p 8080:80`·`-p 8081:80`으로 실행 후 `curl`, Windows `curl.exe`·브라우저
+  - 결과: `curl: (7)`(exit 7) → `8080 -> HTTP 200`, `8081 -> HTTP 200`, `Windows -> localhost:8080 HTTP 200`, 주소창이 보이는 화면 2장
+- **바인드 마운트** — 증거: [09](logs/09_bind_mount.log), [변경 전](docs/images/09_bind_before.png) / [변경 후](docs/images/09_bind_after.png)
+  - 명령: `-v "$PWD/bind-site":/usr/share/nginx/html`로 실행 → 호스트에서 `sed -i` → `curl http://localhost:8082`
+  - 결과: `Bind Mount v1` → `Bind Mount v2 (edited on host)`, `Up 6 seconds (healthy)`(재시작 없음)
+- **볼륨** — 증거: [10](logs/10_volume.log)
+  - 명령: `docker volume create web-data`, `-v web-data:/data`, `docker rm -f vol-writer` 후 `vol-reader`에서 `cat`
+  - 결과: 삭제 후에도 `web-data`가 남고 새 컨테이너에서 `written by vol-writer at 2026-11-02_05:50:51` / 볼륨 없이 쓴 파일은 새 컨테이너에서 `No such file or directory`
+- **Git·GitHub** — 증거: [11](logs/11_git.log), [13](logs/13_secret_check.log), [로그인](docs/images/11_vscode_github_login.png), [게시](docs/images/11_vscode_window.png)
+  - 명령: `git config --list`, `git init`, `git ls-remote --heads origin`, GitHub API, `git remote -v`, VS Code 화면
+  - 결과: `user.name=timmy518`, `init.defaultbranch=main` / 첫 게시(`dev-workstation`, 지금은 삭제) 때 원격 `main` = 로컬 `f642393`, `"visibility": "public"` / 제출 저장소(`Codyssey_E_1-1`): 원격 `main` `baf1d6b…` = 로컬 `baf1d6b (HEAD -> main, origin/main)`, `update by push`, `"visibility": "public"`(11의 `# 7)`)
+- **민감정보** — 증거: [13](logs/13_secret_check.log), [8장](#8-보안개인정보-처리)
+  - 명령: 비밀값 모양 `grep -rnIE`(파일)·`git log -p --all | grep -cE`(히스토리), 키워드 `grep`, `credential.helper` 조회, PNG 청크 검사
+  - 결과: 모양 검색 0건, 키워드는 실습 문구 `secret inside`만, `credential.helper` 없음, PNG 8장 `text metadata: none`
 
 ---
 
@@ -842,7 +862,7 @@ timmy518@AISiLa:~$ chmod 644 ~/drvfs_copy_test.txt && ls -l ~/drvfs_copy_test.tx
 - **증거** — [`logs/08_ports.log`](logs/08_ports.log)의 5) 발췌:
 
 ```bash
-timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-conflict -p 8080:80 my-web:1.0  # web-8080이 8080을 쓰는 중
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-conflict -p 8080:80 my-web:1.0
 2d4553e95e9844fe223d1063da633d2ed37acc6eaa80b493b03895d5baf26878
 docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint web-conflict (7a419e9d649b9a6edfce8ec772f95d5df211167167194c716d895f2f622f7138): Bind for 0.0.0.0:8080 failed: port is already allocated
 ...
@@ -1025,7 +1045,7 @@ rm -r ~/codyssey/practice/bind-site
 - **이름이 겹치는 경우** — 이 절은 폴더 `Codyssey_E_1-1`·`~/codyssey/practice/bind-site`, 이미지 `my-web:1.0`, 컨테이너 `web-8080`·`web-8081`·`web-bind`·`vol-writer`, 볼륨 `web-data`를 고정 이름으로 씁니다. 이미 있으면 clone이나 컨테이너 실행이 실패하고(`Conflict`), 이미지 태그·파일·볼륨 내용은 경고 없이 덮어쓰이며 7)에서 지워집니다. 남겨야 할 것이 있으면 이름을 바꿔 실행하고 7)에서도 같은 이름을 쓰세요. 다시 실행할 때는 7)부터 실행하면 됩니다.
 - **docker 권한 (Linux·WSL)** — `permission denied … docker.sock`이 나오면 `sudo usermod -aG docker $USER`를 실행한 뒤 터미널을 새로 엽니다(WSL은 PowerShell에서 `wsl --shutdown` 후 다시 열기). docker 그룹이 사실상 root 권한이라는 점은 [5.3](#53-docker-설치)을 참고하세요.
 - **Windows** — 명령은 PowerShell에서 `wsl -- bash -c "…"`로 넘기지 말고 Ubuntu 터미널 안에서 입력합니다([7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐)).
-- **macOS** — 위 0)~7)에는 sudo가 필요한 명령이 없습니다. `Cannot connect to the Docker daemon`이 나오면 OrbStack 앱을 실행한 뒤 다시 하고, `command not found: docker`면 터미널을 새로 엽니다. git이 없으면 `xcode-select --install`로 설치하거나(관리자 권한이 필요할 수 있음), 저장소 페이지의 **Code → Download ZIP**으로 받아 압축을 푼 폴더(`Codyssey_E_1-1-main`)에서 2)부터 진행합니다. WSL 관련 단계(위 1~4번, 7-1·7-2·7-3·7-6)와 5.3·5.4의 systemctl·docker 그룹 점검은 해당하지 않습니다.
+- **macOS** — 위 0)\~7)에는 sudo가 필요한 명령이 없습니다. `Cannot connect to the Docker daemon`이 나오면 OrbStack 앱을 실행한 뒤 다시 하고, `command not found: docker`면 터미널을 새로 엽니다. git이 없으면 `xcode-select --install`로 설치하거나(관리자 권한이 필요할 수 있음), 저장소 페이지의 **Code → Download ZIP**으로 받아 압축을 푼 폴더(`Codyssey_E_1-1-main`)에서 2)부터 진행합니다. WSL 관련 단계(위 1\~4번, 7-1·7-2·7-3·7-6)와 5.3·5.4의 systemctl·docker 그룹 점검은 해당하지 않습니다.
 
 ---
 
@@ -1038,13 +1058,10 @@ rm -r ~/codyssey/practice/bind-site
 - 시각은 컨테이너 안(nginx 로그의 `+0000`, 볼륨 실습의 `date`)이 UTC, 호스트 쪽(`ls -l`, `docker volume inspect`의 `+09:00`)이 KST라 9시간 차이가 납니다(05:50 UTC = 14:50 KST).
 - 터미널 캡처 2장(5.1, 5.6)은 로그를 다 만든 뒤 같은 기록 방식으로 Windows Terminal에서 다시 실행해 찍었습니다(11월 2일 20:55~20:56).
 - **로그에 없는 것** — 7-1·7-2·7-5·7-6의 화면 메시지(7-6은 원인 재현 실험만 12 끝에 있음)와 첫 커밋 때 나온 CRLF 경고([5.11](#511-git-설정과-github--vs-code-연동))는 로그 파일이 없어 화면 내용을 옮겨 적었습니다. 첫 커밋의 `git add`·`git commit`과 5.11 연동 절차 5단계의 원격 교체·커밋·`git push` 명령도 기록 밖이며, 결과는 11의 `# 4)`·`# 7)`로 확인합니다.
-
-| 차수 | 시각 (11월 2일, KST) | 기록한 로그 |
-|---|---|---|
-| 1차 | 13:4x | 01, 03, 11의 `# 1)`\~`# 3)`(Git 설정·`git init`) |
-| 2차 (검토 후 다시 기록) | 14:4x–14:5x | 00(`[3]` 초기화 포함), 02, 04\~10, 12 — 번호 순서대로 |
-| 보충 | — | 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검, 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05) |
-
+- **기록 차수** (시각은 11월 2일 KST)
+  - **1차** (13:4x): 01, 03, 11의 `# 1)`\~`# 3)`(Git 설정·`git init`)
+  - **2차** (14:4x–14:5x, 검토 후 다시 기록): 00(`[3]` 초기화 포함), 02, 04\~10, 12 — 번호 순서대로
+  - **보충**: 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검, 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05)
 - 1차 기록을 문서와 대조하자 빠진 준비 명령, 번호와 다른 실행 순서, 결론을 뒷받침하지 못하는 비교 실험(볼륨 없는 데이터)이 나와, 00의 `[3]`에서 실습 환경을 비우고(`docker system df` 모두 0) 다시 기록했습니다(04의 `Images: 0`, 05\~07의 새 pull은 이 때문). 2차 기록 도중 한 번은 [7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐) (b) 때문에 고친 파일이 복사되지 않아 처음부터 다시 했고, `[3]`이 지운 컨테이너(web-8080·web-8081·web-bind와 hello-world)는 그 버린 시도가 남긴 것입니다.
 - 검토 후 고친 것은 설명(`#`) 줄과 보충 실험뿐이고, 명령과 출력은 고치지 않았습니다. 고친 설명 줄은 아래와 같습니다.
   - 00 `[3]`: 다시 기록한 범위를 02, 04\~10, 12로 바로잡음
