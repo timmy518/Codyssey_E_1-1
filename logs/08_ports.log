@@ -107,3 +107,110 @@ Windows -> localhost:8080 HTTP 200
 PS> curl.exe -s http://localhost:8081/info
 {"app":"dev-workstation","version":"1.0","env":"prod","served_by":"00466df6b603"}
 
+# 7) (보충, 11월 3일 18:41 KST) 포트 충돌 진단 — 5)는 충돌만 재현했으므로, 그 포트를 누가 쓰는지(컨테이너·프로세스·PID) 찾아
+#    포트를 비운 뒤 같은 명령이 다시 성공하는지까지 확인한다. 증거용 컨테이너(web-8080·web-8081·web-bind)는 건드리지 않고,
+#    시험용 포트 18080·18081 과 시험용 컨테이너(port-holder·port-second·port-third)만 쓴다.
+#    (1) 컨테이너가 포트를 쓰는 경우 — 18080 이 비어 있는지 보고, port-holder 가 쓰는 상태에서 같은 포트로 하나 더 띄운다
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18080'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-holder -p 18080:80 my-web:1.0
+0bad41c80d2d9e7706b1755307f6e6f3c1201f55325c856fba57cc3d7cfd16e6
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-second -p 18080:80 my-web:1.0
+f5f58e981b1178da99be46b3c3f441d735e37858c36322e98b9a922ee402a51f
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint port-second (8684252f90a800fdf69a63473ad225e2aef767ec28160da7594833d36eb1fce3): Bind for 0.0.0.0:18080 failed: port is already allocated
+
+Run 'docker run --help' for more information
+[exit code: 125]
+
+#    누가 쓰는지: docker ps 의 PORTS 로 컨테이너를 찾고, ss 로 그 포트를 듣는 프로세스를 본다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps --filter publish=18080 --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+NAMES         STATUS                                     PORTS
+port-holder   Up Less than a second (health: starting)   0.0.0.0:18080->80/tcp, [::]:18080->80/tcp
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lntp 'sport = :18080'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      4096         0.0.0.0:18080      0.0.0.0:*          
+LISTEN 0      4096            [::]:18080         [::]:*          
+
+#    일반 사용자의 ss 에는 root 가 띄운 프로세스의 이름·PID 가 나오지 않으므로, 관리자(root) 셸에서 다시 확인한다
+root@AISiLa:~# ss -lntp 'sport = :18080'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                 
+LISTEN 0      4096         0.0.0.0:18080      0.0.0.0:*    users:(("docker-proxy",pid=76392,fd=8))
+LISTEN 0      4096            [::]:18080         [::]:*    users:(("docker-proxy",pid=76399,fd=8))
+
+root@AISiLa:~# lsof -nP -iTCP:18080 -sTCP:LISTEN
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+docker-pr 76392 root    8u  IPv4 998071      0t0  TCP *:18080 (LISTEN)
+docker-pr 76399 root    8u  IPv6 998072      0t0  TCP *:18080 (LISTEN)
+
+#    docker-proxy 는 Docker 가 컨테이너의 포트를 열어 두는 프로세스라 kill 하지 않고, 그 포트를 쓰는 컨테이너(port-holder)를 멈춰 포트를 비운다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker stop port-holder
+port-holder
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18080'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+
+#    실패해 Created 로 남은 port-second 를 지우고 같은 명령을 다시 실행하면 이번에는 뜬다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm port-second
+port-second
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-second -p 18080:80 my-web:1.0
+a7c2d31f56522a931bf50f9cfc2d683171be89799c8230b221e1506b98b651a2
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:18080/health
+ok
+
+#    (2) Docker 밖의 프로그램이 포트를 쓰는 경우 — python3 의 간이 웹 서버로 18081 을 먼저 잡아 둔다
+timmy518@AISiLa:~/codyssey/dev-workstation$ nohup python3 -m http.server 18081 > /dev/null 2>&1 &
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lntp 'sport = :18081'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      5            0.0.0.0:18081      0.0.0.0:*    users:(("python3",pid=77026,fd=3))
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-third -p 18081:80 my-web:1.0
+09a7e1bc647aa304a6b8a3c252bf26a948056625a44217769d4eb2d333959e5b
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint port-third (4263c7dbf967ede6b1e9c4b9063dd6da4e97dbefec31c00c559c2d4916244f06): failed to bind host port 0.0.0.0:18081/tcp: address already in use
+
+Run 'docker run --help' for more information
+[exit code: 125]
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=port-third --format "table {{.Names}}\t{{.Status}}"
+NAMES        STATUS
+port-third   Created
+
+#    ss·lsof 로 찾은 프로그램(python3)의 PID 로 그 프로그램을 끄고(kill), 포트가 비었는지 확인한다
+timmy518@AISiLa:~/codyssey/dev-workstation$ lsof -nP -iTCP:18081 -sTCP:LISTEN
+COMMAND   PID     USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+python3 77026 timmy518    3u  IPv4 1023077      0t0  TCP *:18081 (LISTEN)
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ kill 77026
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18081'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm port-third
+port-third
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-third -p 18081:80 my-web:1.0
+15371608543b6c6f611c6689f46d48d00110c862ef878a0a21e05f61624043fc
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:18081/health
+ok
+
+#    정리: 시험용 컨테이너만 지운다. 증거용 web-8080·web-8081·web-bind 는 그대로(Exited)다
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm -f port-holder port-second port-third
+port-holder
+port-second
+port-third
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=port- --format "table {{.Names}}\t{{.Status}}"
+NAMES     STATUS
+
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=web- --format "table {{.Names}}\t{{.Status}}"
+NAMES      STATUS
+web-bind   Exited (0) 20 hours ago
+web-8081   Exited (0) 20 hours ago
+web-8080   Exited (0) 20 hours ago
+

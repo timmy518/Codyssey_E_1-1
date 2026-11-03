@@ -99,7 +99,7 @@ git version 2.43.0
 - [x] Git 설정 — `user.name`, `user.email`, `init.defaultBranch main` 설정 후 `git config --list` → [5.11](#511-git-설정과-github--vs-code-연동)
 - [x] GitHub / VS Code 연동 — VS Code(WSL 모드)에서 GitHub 로그인 후 공개 저장소로 게시(캡처 2장), 최종본은 VS Code 터미널의 `git push`로 이 저장소에 올림 → [5.11](#511-git-설정과-github--vs-code-연동)
 - [x] 실행 환경 기록 — Windows(PowerShell)·Ubuntu(bash)에서 OS·WSL·셸·터미널·Docker·Git·VS Code 버전 확인 → [2](#2-실행-환경)
-- [x] 트러블슈팅 6건(문제 → 원인 가설 → 확인 → 해결/대안) — WSL 설치·시작, 파일 실행 권한, 포트 충돌, VS Code 로그인, PowerShell에서 WSL로 명령 전달 → [7](#7-트러블슈팅)
+- [x] 트러블슈팅 6건(문제 → 원인 가설 → 확인 → 해결/대안) — WSL 설치·시작, 파일 실행 권한, 포트 충돌(포트를 쓰는 프로세스 찾기 포함), VS Code 로그인, PowerShell에서 WSL로 명령 전달 → [7](#7-트러블슈팅)
 - [x] 민감정보 점검 — 파일·커밋 히스토리에서 토큰·개인키 모양 검색 0건, 원격 주소에 토큰 없음, 스크린샷 8장 확인 → [8](#8-보안개인정보-처리)
 
 ---
@@ -573,7 +573,7 @@ Windows -> localhost:8080 HTTP 200
 
 ![localhost:8081/info 접속 화면](docs/images/08_port_8081_info.png)
 
-전체 로그: [`logs/08_ports.log`](logs/08_ports.log) — 접근 로그(`docker logs`)·자원 사용량(`docker stats`) 확인, 같은 호스트 포트로 하나 더 띄운 포트 충돌 재현, Windows의 `localhost:8081/info` 응답도 이 로그에 있습니다. 포트 충돌의 원인과 해결은 [7-4](#7-4-포트-충돌-의도적으로-재현)에 정리했습니다.
+전체 로그: [`logs/08_ports.log`](logs/08_ports.log) — 접근 로그(`docker logs`)·자원 사용량(`docker stats`) 확인, 같은 호스트 포트로 하나 더 띄운 포트 충돌 재현, Windows의 `localhost:8081/info` 응답, 시험용 포트(18080·18081)로 충돌을 다시 만들어 포트를 쓰는 컨테이너·프로세스(PID)를 찾고 비운 진단(보충, `# 7)`)도 이 로그에 있습니다. 포트 충돌의 원인·진단·해결은 [7-4](#7-4-포트-충돌-의도적으로-재현)에 정리했습니다.
 
 ### 5.9 바인드 마운트 반영
 
@@ -835,8 +835,8 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
   - 명령: `docker build --progress=plain -t my-web:1.0 .`, `docker image inspect`, `docker run --rm my-web:1.0 cat …`
   - 결과: `naming to docker.io/library/my-web:1.0 done`, 페이지 제목 `Welcome to nginx!` → `Dev Workstation`, 실행하면 `(healthy)`
 - **포트 매핑** — 증거: [08](logs/08_ports.log), [8080 화면](docs/images/08_port_8080.png), [8081 화면](docs/images/08_port_8081_info.png)
-  - 명령: 매핑 없이 `curl`, `-p 8080:80`·`-p 8081:80`으로 실행 후 `curl`, Windows `curl.exe`·브라우저
-  - 결과: `curl: (7)`(exit 7) → `8080 -> HTTP 200`, `8081 -> HTTP 200`, `Windows -> localhost:8080 HTTP 200`, 주소창이 보이는 화면 2장
+  - 명령: 매핑 없이 `curl`, `-p 8080:80`·`-p 8081:80`으로 실행 후 `curl`, Windows `curl.exe`·브라우저 / 포트 충돌 진단(보충): `docker ps --filter publish=…`, `ss -lntp`, `lsof -i`, `docker stop`, `kill`
+  - 결과: `curl: (7)`(exit 7) → `8080 -> HTTP 200`, `8081 -> HTTP 200`, `Windows -> localhost:8080 HTTP 200`, 주소창이 보이는 화면 2장 / 충돌하면 `port is already allocated`·`address already in use`(exit 125), 포트를 쓰던 `docker-proxy`·`python3`의 PID를 찾은 뒤 컨테이너는 `docker stop`, python3는 `kill`로 비우자 다시 실행한 컨테이너의 `/health`가 `ok` → [7-4](#7-4-포트-충돌-의도적으로-재현)
 - **바인드 마운트** — 증거: [09](logs/09_bind_mount.log), [변경 전](docs/images/09_bind_before.png) / [변경 후](docs/images/09_bind_after.png)
   - 명령: `-v "$PWD/bind-site":/usr/share/nginx/html`로 실행 → 호스트에서 `sed -i` → `curl http://localhost:8082`
   - 결과: `Bind Mount v1` → `Bind Mount v2 (edited on host)`, `Up 6 seconds (healthy)`(재시작 없음)
@@ -900,8 +900,8 @@ timmy518@AISiLa:~$ chmod 644 ~/drvfs_copy_test.txt && ls -l ~/drvfs_copy_test.tx
 
 - **문제** — web-8080이 호스트 8080 포트를 쓰는 상태에서, 같은 호스트 포트로 컨테이너를 하나 더 띄우면 어떻게 되는지 일부러 재현했습니다.
 - **원인 가설** — 호스트의 8080 포트를 이미 다른 컨테이너나 다른 프로그램이 쓰고 있음
-- **확인** — 오류 문구 `Bind for 0.0.0.0:8080 failed: port is already allocated`는 Docker가 그 호스트 포트를 이미 다른 컨테이너에 배정했다는 뜻이고, 앞서 [5.8](#58-포트-매핑과-접속-증거)의 `docker ps`에서 web-8080의 PORTS가 `0.0.0.0:8080->80/tcp`였습니다. 첫 줄에 ID가 찍혀 컨테이너는 만들어졌지만 포트 연결에서 실패해 `Created`로 남았고, `docker run`은 exit code 125로 끝났습니다.
-- **해결·대안** — 다른 호스트 포트를 씁니다(이 미션의 두 번째 컨테이너는 `-p 8081:80`). 8080이 꼭 필요하면 쓰던 컨테이너를 정리(`docker stop web-8080`)한 뒤 실행합니다. 포트를 누가 쓰는지는 `docker ps`(컨테이너)나 `sudo ss -lntp | grep :8080`(그 밖의 프로그램)으로 확인합니다. Docker 밖의 프로그램이 포트를 쓰고 있으면 오류가 `address already in use`로 나오는데, 이때는 `ss` 출력의 `pid=` 값으로 그 프로그램을 확인해 끕니다(예: `sudo kill <PID>`). 다만 `docker-proxy`나 `dockerd`로 나오면 컨테이너가 쓰는 포트이므로 끄지 말고 `docker ps`로 찾아 정리합니다. `Created`로 남은 컨테이너는 이름을 계속 차지하므로 `docker rm web-conflict`로 지웠습니다.
+- **확인** — 오류 문구 `Bind for 0.0.0.0:8080 failed: port is already allocated`는 Docker가 그 호스트 포트를 이미 다른 컨테이너에 배정했다는 뜻이고, 앞서 [5.8](#58-포트-매핑과-접속-증거)의 `docker ps`에서 web-8080의 PORTS가 `0.0.0.0:8080->80/tcp`였습니다. 첫 줄에 ID가 찍혀 컨테이너는 만들어졌지만 포트 연결에서 실패해 `Created`로 남았고, `docker run`은 exit code 125로 끝났습니다. 포트를 누가 쓰는지는 아래 **보충 진단**에서 시험용 포트 18080으로 같은 충돌을 다시 만들어 찾았습니다. `docker ps --filter publish=18080`의 PORTS로 포트를 쓰는 컨테이너(`port-holder`)를 찾았고, `ss -lntp`·`lsof -i`로 보니 18080은 root가 띄운 `docker-proxy`(PID 76392·76399)가 열어 두고 있었습니다. 일반 사용자의 `ss`에는 이 프로세스가 보이지 않아 관리자(root) 셸에서 확인했습니다(`sudo ss -lntp`와 같음).
+- **해결·대안** — 다른 호스트 포트를 씁니다(이 미션의 두 번째 컨테이너는 `-p 8081:80`). 같은 포트가 꼭 필요하면 그 포트를 쓰는 쪽을 비웁니다. `docker-proxy`나 `dockerd`로 나오면 Docker가 컨테이너의 포트를 열어 둔 것이므로 끄지 말고 그 컨테이너를 멈춥니다(이 장면이면 `docker stop web-8080`). 보충 진단에서 `docker stop port-holder` 뒤 `ss`에서 18080이 사라졌고, 같은 명령을 다시 실행하자 성공해 `/health`가 `ok`였습니다. Docker 밖의 프로그램이 쓰고 있으면 오류가 `address already in use`로 나오며, `ss`·`lsof`에 나온 PID로 그 프로그램을 끕니다. 보충 진단에서 18081을 잡고 있던 python3를 `kill 77026`으로 끄자 포트가 비었고 다시 실행한 컨테이너가 성공했습니다(다른 사용자의 프로그램이면 PID도 `sudo ss -lntp`로 찾고 `sudo kill <PID>`로 끔). 실패한 컨테이너는 `Created`로 남아 이름을 차지하므로 `docker rm`으로 지운 뒤 다시 실행합니다(보충 진단의 `port-second`·`port-third`, 위 장면의 `web-conflict`는 `docker rm web-conflict`로 지우기만 함).
 - **증거** — [`logs/08_ports.log`](logs/08_ports.log) 88–101행(`# 5)`) 발췌:
 
 ```bash
@@ -913,6 +913,69 @@ docker: Error response from daemon: failed to set up container networking: drive
 timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=web-conflict --format "table {{.Names}}\t{{.Status}}"
 NAMES          STATUS
 web-conflict   Created
+```
+
+**보충 진단** — [`logs/08_ports.log`](logs/08_ports.log) 110–215행(`# 7)`, 11월 3일 18:41) 발췌입니다. 시험용 포트 18080·18081과 시험용 컨테이너(`port-holder`·`port-second`·`port-third`)만 쓰고 끝에 지웠으며, 증거용 컨테이너(web-8080·web-8081·web-bind)는 건드리지 않았습니다. `root@AISiLa:~#`로 시작하는 두 명령만 관리자(root) 셸입니다.
+
+```bash
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18080'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-holder -p 18080:80 my-web:1.0
+0bad41c80d2d9e7706b1755307f6e6f3c1201f55325c856fba57cc3d7cfd16e6
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-second -p 18080:80 my-web:1.0
+f5f58e981b1178da99be46b3c3f441d735e37858c36322e98b9a922ee402a51f
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint port-second (8684252f90a800fdf69a63473ad225e2aef767ec28160da7594833d36eb1fce3): Bind for 0.0.0.0:18080 failed: port is already allocated
+...
+[exit code: 125]
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps --filter publish=18080 --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+NAMES         STATUS                                     PORTS
+port-holder   Up Less than a second (health: starting)   0.0.0.0:18080->80/tcp, [::]:18080->80/tcp
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lntp 'sport = :18080'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      4096         0.0.0.0:18080      0.0.0.0:*
+LISTEN 0      4096            [::]:18080         [::]:*
+root@AISiLa:~# ss -lntp 'sport = :18080'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      4096         0.0.0.0:18080      0.0.0.0:*    users:(("docker-proxy",pid=76392,fd=8))
+LISTEN 0      4096            [::]:18080         [::]:*    users:(("docker-proxy",pid=76399,fd=8))
+root@AISiLa:~# lsof -nP -iTCP:18080 -sTCP:LISTEN
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+docker-pr 76392 root    8u  IPv4 998071      0t0  TCP *:18080 (LISTEN)
+docker-pr 76399 root    8u  IPv6 998072      0t0  TCP *:18080 (LISTEN)
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker stop port-holder
+port-holder
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18080'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm port-second
+port-second
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-second -p 18080:80 my-web:1.0
+a7c2d31f56522a931bf50f9cfc2d683171be89799c8230b221e1506b98b651a2
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:18080/health
+ok
+timmy518@AISiLa:~/codyssey/dev-workstation$ nohup python3 -m http.server 18081 > /dev/null 2>&1 &
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lntp 'sport = :18081'
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      5            0.0.0.0:18081      0.0.0.0:*    users:(("python3",pid=77026,fd=3))
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-third -p 18081:80 my-web:1.0
+09a7e1bc647aa304a6b8a3c252bf26a948056625a44217769d4eb2d333959e5b
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint port-third (4263c7dbf967ede6b1e9c4b9063dd6da4e97dbefec31c00c559c2d4916244f06): failed to bind host port 0.0.0.0:18081/tcp: address already in use
+...
+[exit code: 125]
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker ps -a --filter name=port-third --format "table {{.Names}}\t{{.Status}}"
+NAMES        STATUS
+port-third   Created
+timmy518@AISiLa:~/codyssey/dev-workstation$ lsof -nP -iTCP:18081 -sTCP:LISTEN
+COMMAND   PID     USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+python3 77026 timmy518    3u  IPv4 1023077      0t0  TCP *:18081 (LISTEN)
+timmy518@AISiLa:~/codyssey/dev-workstation$ kill 77026
+timmy518@AISiLa:~/codyssey/dev-workstation$ ss -lnt 'sport = :18081'
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker rm port-third
+port-third
+timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name port-third -p 18081:80 my-web:1.0
+15371608543b6c6f611c6689f46d48d00110c862ef878a0a21e05f61624043fc
+timmy518@AISiLa:~/codyssey/dev-workstation$ curl -sS http://localhost:18081/health
+ok
 ```
 
 ### 7-5. VS Code의 GitHub 로그인이 브라우저에서 멈춤
@@ -949,10 +1012,10 @@ PS> wsl -d Ubuntu-24.04 -e bash -c "x=1; echo [`$x]"  # 기본 셸을 거치지 
 
 ## 8. 보안·개인정보 처리
 
-문서·로그·스크린샷에 토큰, 비밀번호, 개인키, 인증 코드가 없는지 아래처럼 점검했습니다. 명령과 결과 전체는 [`logs/13_secret_check.log`](logs/13_secret_check.log)에 있습니다. 처음 점검(`# 1)`~`# 5)`) 뒤에 README를 더 고치고 11·10 로그에 보충 기록을 덧붙였으므로, 같은 검사를 다시 실행했습니다(재점검, 11월 3일 16:03, 13의 `# 6)`, 42행부터).
+문서·로그·스크린샷에 토큰, 비밀번호, 개인키, 인증 코드가 없는지 아래처럼 점검했습니다. 명령과 결과 전체는 [`logs/13_secret_check.log`](logs/13_secret_check.log)에 있습니다. 처음 점검(`# 1)`~`# 5)`) 뒤에 README를 더 고치고 11·10 로그에 보충 기록을 덧붙였으므로, 같은 검사를 다시 실행했습니다(재점검, 11월 3일 16:03, 13의 `# 6)`, 42행부터). 그 뒤 08 로그에 포트 충돌 진단(`# 7)`)을 덧붙이고 README를 고쳐 한 번 더 실행했습니다(두 번째 재점검, 11월 3일 19:14, 13의 `# 7)`, 83행부터).
 
-- **비밀값 모양 검색** — GitHub 토큰(`ghp_` 등, `github_pat_`), 개인키 머리말, AWS 키, 주소 안의 아이디:비밀번호 모양을 README를 포함한 모든 파일과 커밋 히스토리 전체(`git log -p --all`)에서 찾았습니다. 파일·히스토리 검색 모두 처음 점검과 재점검에서 0건입니다(`grep`은 찾은 것이 없으면 exit code 1로 끝남).
-- **키워드 검색** — password·secret·token·비밀번호 등을 로그, Dockerfile, `nginx/`, `app/`, `.gitignore`, `.dockerignore`에서 찾았습니다. 처음 점검에서 걸린 줄은 권한 실습 파일의 문구 `secret inside`([5.2](#52-권한-실습))뿐이었고, 재점검에서는 11 로그의 `git status` 출력에 찍힌 파일 이름 `logs/13_secret_check.log`(11의 110행)가 더 걸렸습니다(13의 54행). 둘 다 비밀값이 아닙니다. README는 이 낱말로 보안을 설명하는 문서라 키워드 검색에서만 뺐습니다.
+- **비밀값 모양 검색** — GitHub 토큰(`ghp_` 등, `github_pat_`), 개인키 머리말, AWS 키, 주소 안의 아이디:비밀번호 모양을 README를 포함한 모든 파일과 커밋 히스토리 전체(`git log -p --all`)에서 찾았습니다. 파일·히스토리 검색 모두 처음 점검과 두 번의 재점검에서 0건입니다(`grep`은 찾은 것이 없으면 exit code 1로 끝남).
+- **키워드 검색** — password·secret·token·비밀번호 등을 로그, Dockerfile, `nginx/`, `app/`, `.gitignore`, `.dockerignore`에서 찾았습니다. 처음 점검에서 걸린 줄은 권한 실습 파일의 문구 `secret inside`([5.2](#52-권한-실습))뿐이었고, 재점검에서는 11 로그의 `git status` 출력에 찍힌 파일 이름 `logs/13_secret_check.log`(11의 110행)가 더 걸렸습니다(13의 54행, 두 번째 재점검은 95행). 둘 다 비밀값이 아닙니다. README는 이 낱말로 보안을 설명하는 문서라 키워드 검색에서만 뺐습니다.
 - **원격 주소·인증 설정** — `git remote -v`는 토큰이 없는 `https://github.com/timmy518/Codyssey_E_1-1.git`이고, 비밀번호를 평문 파일로 저장하는 `credential.helper`는 설정되어 있지 않습니다(출력 없음).
 - **스크린샷** — PNG 8장 모두 글자 메타데이터 청크(tEXt·iTXt·zTXt·eXIf)가 없고(`text metadata: none`), 한 장씩 열어 본 화면에도 토큰·인증 코드가 없습니다. 브라우저 캡처는 Edge InPrivate 창으로 찍어 평소 브라우저의 계정·방문 기록이 나오지 않게 했습니다.
 - **GitHub 인증** — VS Code의 GitHub 로그인(브라우저 승인)으로 했고, 비밀번호는 (필요할 때) 브라우저의 github.com 화면에만 입력했습니다. 최종본도 이 로그인을 그대로 쓰는 VS Code 터미널의 `git push`로 올려 토큰을 입력하지 않았습니다. Ubuntu 사용자 비밀번호도 어디에도 기록하지 않았습니다.
@@ -1106,14 +1169,14 @@ rm -r ~/codyssey/practice/bind-site
 - 명령은 스크립트 파일에 적어 Windows PowerShell 5.1에서 `wsl -- bash <스크립트>`로 실행했습니다([7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐)의 따옴표·변수 문제를 피하려고). 기록용 함수가 각 명령을 자식 `bash -c`로 실행해 프롬프트 줄(`사용자@호스트:현재경로$ 명령`)과 출력을 함께 저장했고, 그래서 실패 메시지가 `bash: line 1: …` 형태입니다(터미널에 직접 입력하면 `bash: …`).
 - 자식 셸에서 바꾼 위치는 다음 명령에 이어지지 않아서, 함수가 명령이 끝날 때의 `pwd`를 받아 다음 명령에 넘겼습니다(실패한 02의 `cd perm_dir` 뒤에는 위치가 그대로). 출력은 파일로 받아서 옵션 없는 `ls`가 한 줄에 하나씩 기록되었습니다(01).
 - 대화형 장면(`docker run -it`, `docker exec -it`, `docker attach`)은 `script` 명령이 만든 가상 터미널(pseudo-terminal)에 키 입력을 보내 기록했고, 화면 제어 코드와 줄 끝 CR만 지웠습니다. 이 가상 터미널은 크기를 정하지 않아(0×0) 06의 'attach 상태에서 exit' 장면에는 `exit` 입력 줄 대신 빈 줄이 있고, 그 아래 `exit`는 bash가 끝나며 찍은 메시지입니다.
-- Windows에서 실행한 명령(00의 `[1]`, 08·12의 마지막 두 명령)은 `PS>` 뒤에 적었습니다. 로그에서 명령(프롬프트 줄) 위에 붙은 `#` 줄은 설명이고(출력 속 `#`으로 시작하는 줄 — 02의 `#!/bin/bash`, 07의 `cat Dockerfile`·`cat .dockerignore` 내용과 빌드 출력 `#0`~`#8`, 11의 `## main...origin/main` — 은 실제 출력), `[exit code: N]`은 0이 아닌 종료 코드입니다: 126 실행 권한 없음(02), 7 curl 연결 실패(08), 125 `docker run` 실패(08), 1 권한 거부·파일이나 컨테이너 없음·찾는 값 없음(02, 10, 13).
+- Windows에서 실행한 명령(00의 `[1]`, 08의 `# 6)`, 12의 마지막 두 명령)은 `PS>` 뒤에 적었습니다. 08의 `# 7)`에서 `root@AISiLa:~#`로 시작하는 두 명령은 root 프로세스(`docker-proxy`)의 PID를 보려고 같은 기록 함수를 root 사용자로 실행한 것입니다(`wsl -u root`). 로그에서 명령(프롬프트 줄) 위에 붙은 `#` 줄은 설명이고(출력 속 `#`으로 시작하는 줄 — 02의 `#!/bin/bash`, 07의 `cat Dockerfile`·`cat .dockerignore` 내용과 빌드 출력 `#0`~`#8`, 11의 `## main...origin/main` — 은 실제 출력), `[exit code: N]`은 0이 아닌 종료 코드입니다: 126 실행 권한 없음(02), 7 curl 연결 실패(08), 125 `docker run` 실패(08), 1 권한 거부·파일이나 컨테이너 없음·찾는 값 없음(02, 10, 13).
 - 시각은 컨테이너 안(nginx 로그의 `+0000`, 볼륨 실습의 `date`)이 UTC, 호스트 쪽(`ls -l`, `docker volume inspect`의 `+09:00`)이 KST라 9시간 차이가 납니다(05:50 UTC = 14:50 KST).
-- 터미널 캡처 2장(5.1, 5.6)은 2차 기록을 마친 뒤 같은 기록 방식으로 Windows Terminal에서 다시 실행해 찍었습니다(11월 2일 20:55~20:56). 13 민감정보 점검은 처음 기록이 제출 커밋 `baf1d6b`에 이미 있었고, 캡처 2장을 넣은 뒤 다시 실행해 지금 내용(PNG 8장)이 됐습니다. 11의 `# 7)`, 10의 `# 7)`, 13의 `# 6)`은 캡처보다 뒤의 기록입니다.
+- 터미널 캡처 2장(5.1, 5.6)은 2차 기록을 마친 뒤 같은 기록 방식으로 Windows Terminal에서 다시 실행해 찍었습니다(11월 2일 20:55~20:56). 13 민감정보 점검은 처음 기록이 제출 커밋 `baf1d6b`에 이미 있었고, 캡처 2장을 넣은 뒤 다시 실행해 지금 내용(PNG 8장)이 됐습니다. 11의 `# 7)`, 10의 `# 7)`, 13의 `# 6)`, 08의 `# 7)`, 13의 `# 7)`은 캡처보다 뒤의 기록입니다.
 - **로그에 없는 것** — 7-1·7-2·7-5·7-6의 화면 메시지(7-6은 원인 재현 실험만 12 끝에 있음)와 첫 커밋 때 나온 CRLF 경고([5.11](#511-git-설정과-github--vs-code-연동))는 로그 파일이 없어 화면 내용을 옮겨 적었습니다. 첫 커밋의 `git add`·`git commit`과 5.11 연동 절차 5단계의 원격 교체·커밋·`git push` 명령도 기록 밖이며, 결과는 11의 `# 4)`·`# 7)`로 확인합니다.
 - **기록 차수** (시각은 KST, 날짜를 따로 적지 않은 것은 11월 2일)
   - **1차** (13:4x): 01, 03, 11의 `# 1)`\~`# 3)`(Git 설정·`git init`)
   - **2차** (14:4x–14:5x, 검토 후 다시 기록): 00(`[3]` 초기화 포함), 02, 04\~10, 12 — 번호 순서대로
-  - **보충**: 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검(처음 기록은 제출 커밋 `baf1d6b`, 캡처 뒤 다시 실행), 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05), 10의 `# 7)`(볼륨 백업·복원, 11월 3일 14:39), 13의 `# 6)`(재점검, 11월 3일 16:03)
+  - **보충**: 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검(처음 기록은 제출 커밋 `baf1d6b`, 캡처 뒤 다시 실행), 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05), 10의 `# 7)`(볼륨 백업·복원, 11월 3일 14:39), 13의 `# 6)`(재점검, 11월 3일 16:03), 08의 `# 7)`(포트 충돌 진단, 11월 3일 18:41), 13의 `# 7)`(두 번째 재점검, 11월 3일 19:14)
 - 1차 기록을 문서와 대조하자 빠진 준비 명령, 번호와 다른 실행 순서, 결론을 뒷받침하지 못하는 비교 실험(볼륨 없는 데이터)이 나와, 00의 `[3]`에서 실습 환경을 비우고(`docker system df` 모두 0) 다시 기록했습니다(04의 `Images: 0`, 05\~07의 새 pull은 이 때문). 2차 기록 도중 한 번은 [7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐) (b) 때문에 고친 파일이 복사되지 않아 처음부터 다시 했고, `[3]`이 지운 컨테이너(web-8080·web-8081·web-bind와 hello-world)는 그 버린 시도가 남긴 것입니다.
 - 검토 후 고친 것은 설명(`#`) 줄과 보충 실험뿐이고, 명령과 출력은 고치지 않았습니다. 고친 설명 줄은 아래와 같습니다.
   - 00 `[3]`: 다시 기록한 범위를 02, 04\~10, 12로 바로잡음
