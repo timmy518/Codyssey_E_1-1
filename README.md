@@ -974,12 +974,16 @@ PS> wsl -d Ubuntu-24.04 -e bash -c "x=1; echo [`$x]"  # 기본 셸을 거치지 
 
 Docker가 동작하는 터미널(Windows는 WSL2 Ubuntu 터미널, macOS는 OrbStack이나 Docker Desktop을 켠 터미널)에서 아래 0)~7)을 순서대로 실행하면 같은 결과를 확인할 수 있습니다. 코드 블록에는 명령만 넣고, 나와야 하는 결과는 각 블록 아래 **확인**에 적었습니다. 블록을 통째로 붙여 넣어도 Ubuntu의 bash와 macOS 기본 셸인 zsh에서 똑같이 실행됩니다. zsh는 터미널에 입력한 줄의 `#`을 주석으로 처리하지 않는 것이 기본값이라 명령 뒤에 주석을 달지 않았습니다.
 
+**Windows는 Ubuntu 터미널에서** — 아래 블록은 bash 문법입니다. Windows PowerShell 5.1에는 `&&`와 `printf`가 없고 `curl`도 다른 명령(`Invoke-WebRequest`)이라 4)\~6)이 그대로 되지 않으며, Git Bash는 `/`로 시작하는 경로를 Windows 경로로 바꿔 넘겨 5)·6)이 어긋날 수 있습니다. PowerShell·Git Bash가 아니라 WSL의 Ubuntu 터미널에 입력합니다.
+
 **Windows 새 PC라면 먼저** — macOS는 OrbStack(또는 Docker Desktop)을 설치해 실행한 뒤 바로 0)부터 하면 됩니다.
 
 1. 관리자 PowerShell에서 `wsl --install -d Ubuntu-24.04 --no-launch`(설치만 하고 바로 실행하지 않음)를 실행하고, 안내에 따라 재부팅합니다([7-1](#7-1-wsl-설치-명령이-설치를-하지-않음), [7-2](#7-2-설치-직후-wsl2가-시작되지-않음)). 재부팅 뒤 `wsl -l -v`에 `Ubuntu-24.04`가 없으면 같은 명령을 한 번 더 실행합니다.
 2. 시작 메뉴에서 **Ubuntu 24.04 LTS**를 처음 열면 리눅스 사용자 이름과 비밀번호를 만들라는 안내가 나옵니다(설치 중에 이미 물어서 만들었다면 그 계정을 씁니다). 이 비밀번호가 다음 단계의 `sudo` 비밀번호입니다(문서나 로그에 남기지 않습니다).
 3. 그 Ubuntu 터미널에서 [5.3](#53-docker-설치)의 **일반 사용자로 따라 하기**를 실행합니다.
 4. Ubuntu 창을 닫고 새로 연 뒤 `id -nG`에 `docker`가 보이면 아래 0)부터 진행합니다. 보이지 않으면 PowerShell에서 `wsl --shutdown`을 실행한 뒤 다시 엽니다.
+
+**이미 Docker Desktop을 쓰는 Windows PC라면** 위 3·4번(Docker Engine 설치와 docker 그룹)은 하지 않습니다. WSL 안에 Docker Engine을 따로 설치해 Docker Desktop과 함께 쓰면 충돌할 수 있다고 [Docker 공식 문서](https://docs.docker.com/desktop/features/wsl/)가 안내합니다. Ubuntu가 없으면 1·2번만 하고, Docker Desktop의 **Settings → Resources → WSL Integration**에서 그 Ubuntu를 켠 뒤 Docker Desktop을 실행한 채로 Ubuntu 터미널에서 0)부터 진행합니다.
 
 **0) Docker 동작 확인**
 
