@@ -3,7 +3,6 @@
 Codyssey 입학연수 미션 수행 기록입니다. Windows 11 PC에 WSL2(Windows 안에서 리눅스를 실행하는 기능)로 Ubuntu를 올리고, 그 안에 Docker Engine을 설치해 Git·VS Code와 함께 쓰는 개발 환경을 만들었습니다. 미션의 각 항목이 실제로 동작하는지 명령과 출력으로 확인했습니다.
 
 - 저장소(공개): https://github.com/timmy518/Codyssey_E_1-1
-- 작성·실행: 사용자 요청에 따라 Claude가 코드·문서 작성과 실습 명령 실행을 했습니다.
 - 명령과 출력 전체는 [`logs/`](logs/)에 단계별 파일로, 캡처 8장은 [`docs/images/`](docs/images/)에 있습니다. 이 문서에는 핵심만 발췌했습니다. `PS>`로 시작하는 줄은 Windows PowerShell에서 실행한 명령입니다.
 
 ## 목차
