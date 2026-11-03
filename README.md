@@ -88,7 +88,7 @@ git version 2.43.0
 - [x] Dockerfile 커스텀 이미지 — (A) 웹 서버 베이스 `nginx:1.30.6-alpine`에 정적 페이지·설정을 교체한 `my-web:1.0` 빌드·실행, 커스텀 포인트별 목적 정리 → [5.7](#57-dockerfile-커스텀-이미지)
 - [x] 포트 매핑 — 같은 이미지를 `-p 8080:80`, `-p 8081:80`으로 두 번 실행해 둘 다 HTTP 200 (`curl`, 브라우저 캡처 2장) → [5.8](#58-포트-매핑과-접속-증거)
 - [x] 바인드 마운트 — `-v "$PWD/bind-site":/usr/share/nginx/html`로 실행, 호스트 파일 수정 전/후 비교(`curl`, 캡처 2장) → [5.9](#59-바인드-마운트-반영)
-- [x] Docker 볼륨 — `web-data` 생성·연결 후 데이터 쓰기, 컨테이너 삭제 뒤 새 컨테이너에서 같은 데이터 확인 → [5.10](#510-docker-볼륨-영속성)
+- [x] Docker 볼륨 — `web-data` 생성·연결 후 데이터 쓰기, 컨테이너 삭제 뒤 새 컨테이너에서 같은 데이터 확인, 백업 tar 파일로 새 볼륨에 복원(보충) → [5.10](#510-docker-볼륨-영속성)
 - [x] Git 설정 — `user.name`, `user.email`, `init.defaultBranch main` 설정 후 `git config --list` → [5.11](#511-git-설정과-github--vs-code-연동)
 - [x] GitHub / VS Code 연동 — VS Code(WSL 모드)에서 GitHub 로그인 후 공개 저장소로 게시(캡처 2장), 최종본은 VS Code 터미널의 `git push`로 이 저장소에 올림 → [5.11](#511-git-설정과-github--vs-code-연동)
 - [x] 실행 환경 기록 — Windows(PowerShell)·Ubuntu(bash)에서 OS·WSL·셸·터미널·Docker·Git·VS Code 버전 확인 → [2](#2-실행-환경)
@@ -115,7 +115,7 @@ Codyssey_E_1-1/                       # 작성자 PC에서는 ~/codyssey/dev-wor
 └── docs/images/                      # 캡처 8장 (5.1·5.6·5.8·5.9·5.11)
 ```
 
-실습 폴더 `~/codyssey/practice`(5.1·5.2·5.9)는 저장소 밖에 두어 커밋하지 않았습니다.
+실습 폴더 `~/codyssey/practice`(5.1·5.2·5.9, 5.10의 백업 파일이 든 `volume-backup/`)는 저장소 밖에 두어 커밋하지 않았습니다.
 
 ---
 
@@ -653,7 +653,42 @@ written by vol-writer at 2026-11-02_05:50:51
 
 **비교: 볼륨 없이 쓴 파일** — 볼륨 없이 컨테이너 `no-volume`의 `/tmp/temp.txt`에 쓴 파일은 그 컨테이너의 쓰기 층(writable layer, 컨테이너마다 이미지 위에 하나씩 생기는 층)에만 있었습니다(`docker diff` → `A /tmp/temp.txt`). 같은 이미지로 만든 새 컨테이너에서는 `No such file or directory`였고, `docker rm no-volume` 뒤에는 컨테이너와 함께 사라졌습니다(`No such container: no-volume`).
 
-전체 로그: [`logs/10_volume.log`](logs/10_volume.log) (볼륨 없이 쓴 파일 비교는 `# 5)`)
+**백업과 복원 (보충, 11월 3일)** — 볼륨을 지우면(`docker volume rm`) 안의 데이터도 함께 사라지므로, 시험용 볼륨 `backup-demo`로 백업과 복원을 확인했습니다. 볼륨을 읽기 전용(`:ro`)으로 연결한 임시 컨테이너가 내용을 tar 파일로 묶어 볼륨 밖 호스트 폴더(`volume-backup`)에 두고, 볼륨을 지운 뒤 새 볼륨 `backup-restore`에 풀었습니다. 증거용 `web-data`는 건드리지 않았습니다.
+
+```bash
+timmy518@AISiLa:~/codyssey/practice$ docker volume create backup-demo
+backup-demo
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-demo:/data ubuntu:24.04 sh -c 'echo "backup test $(date +%F_%T)" > /data/note.txt && cat /data/note.txt && sha256sum /data/note.txt'
+backup test 2026-11-03_05:39:05
+22a43c0b4a4c249cc3bf9ba39e1a5b6377e96a3da105c594be936510ce772fdb  /data/note.txt
+timmy518@AISiLa:~/codyssey/practice$ mkdir -p volume-backup
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-demo:/data:ro -v "$PWD/volume-backup":/backup ubuntu:24.04 tar czf /backup/backup-demo.tgz -C /data .
+timmy518@AISiLa:~/codyssey/practice$ ls -l volume-backup
+total 4
+-rw-r--r-- 1 root root 172 Nov  3 14:39 backup-demo.tgz
+timmy518@AISiLa:~/codyssey/practice$ docker volume rm backup-demo
+backup-demo
+timmy518@AISiLa:~/codyssey/practice$ docker volume ls --filter name=backup-demo
+DRIVER    VOLUME NAME
+timmy518@AISiLa:~/codyssey/practice$ docker volume create backup-restore
+backup-restore
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-restore:/data -v "$PWD/volume-backup":/backup ubuntu:24.04 tar xzf /backup/backup-demo.tgz -C /data
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-restore:/data:ro ubuntu:24.04 sh -c 'cat /data/note.txt && sha256sum /data/note.txt'
+backup test 2026-11-03_05:39:05
+22a43c0b4a4c249cc3bf9ba39e1a5b6377e96a3da105c594be936510ce772fdb  /data/note.txt
+timmy518@AISiLa:~/codyssey/practice$ docker volume rm backup-restore
+backup-restore
+timmy518@AISiLa:~/codyssey/practice$ docker volume ls
+DRIVER    VOLUME NAME
+local     web-data
+```
+
+**확인 포인트**
+
+- 볼륨을 지운 뒤 목록에 `backup-demo`가 없어 안의 데이터도 함께 사라졌지만, 백업 파일 `backup-demo.tgz`는 볼륨 밖 호스트 폴더에 남아 있었습니다.
+- 새 볼륨에 백업을 풀자 내용과 sha256 해시가 백업 전과 같아, 백업 파일로 데이터를 되살릴 수 있음을 확인했습니다. 시험용 볼륨을 정리한 뒤 `docker volume ls`에는 `web-data`만 남았습니다. 백업 보관 위치와 권장 주기는 [9장](#9-개념-정리-과제-목표)의 볼륨 백업·복원 전략에 정리했습니다.
+
+전체 로그: [`logs/10_volume.log`](logs/10_volume.log) (볼륨 없이 쓴 파일 비교는 `# 5)`, 백업과 복원은 `# 7)`)
 
 ### 5.11 Git 설정과 GitHub / VS Code 연동
 
@@ -733,6 +768,7 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
 timmy518@AISiLa:~/codyssey/dev-workstation$ git remote -v
 origin	https://github.com/timmy518/Codyssey_E_1-1.git (fetch)
 origin	https://github.com/timmy518/Codyssey_E_1-1.git (push)
+...
 timmy518@AISiLa:~/codyssey/dev-workstation$ git status -sb  # M = 고친 파일, ?? = 새 파일
 ## main...origin/main
  M README.md
@@ -798,8 +834,8 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
   - 명령: `-v "$PWD/bind-site":/usr/share/nginx/html`로 실행 → 호스트에서 `sed -i` → `curl http://localhost:8082`
   - 결과: `Bind Mount v1` → `Bind Mount v2 (edited on host)`, `Up 6 seconds (healthy)`(재시작 없음)
 - **볼륨** — 증거: [10](logs/10_volume.log)
-  - 명령: `docker volume create web-data`, `-v web-data:/data`, `docker rm -f vol-writer` 후 `vol-reader`에서 `cat`
-  - 결과: 삭제 후에도 `web-data`가 남고 새 컨테이너에서 `written by vol-writer at 2026-11-02_05:50:51` / 볼륨 없이 쓴 파일은 새 컨테이너에서 `No such file or directory`
+  - 명령: `docker volume create web-data`, `-v web-data:/data`, `docker rm -f vol-writer` 후 `vol-reader`에서 `cat` / 백업과 복원(보충): `tar czf`로 백업 → `docker volume rm` → 새 볼륨에 `tar xzf`
+  - 결과: 삭제 후에도 `web-data`가 남고 새 컨테이너에서 `written by vol-writer at 2026-11-02_05:50:51` / 볼륨 없이 쓴 파일은 새 컨테이너에서 `No such file or directory` / 백업과 복원: 볼륨을 지운 뒤 새 볼륨에서 `backup test 2026-11-03_05:39:05`, 백업 전과 같은 sha256 해시(22a43c0b…)
 - **Git·GitHub** — 증거: [11](logs/11_git.log), [13](logs/13_secret_check.log), [로그인](docs/images/11_vscode_github_login.png), [게시](docs/images/11_vscode_window.png)
   - 명령: `git config --list`, `git init`, `git ls-remote --heads origin`, GitHub API, `git remote -v`, VS Code 화면
   - 결과: `user.name=timmy518`, `init.defaultbranch=main` / 첫 게시(`dev-workstation`, 지금은 삭제) 때 원격 `main` = 로컬 `f642393`, `"visibility": "public"` / 제출 저장소(`Codyssey_E_1-1`): 원격 `main` `baf1d6b…` = 로컬 `baf1d6b (HEAD -> main, origin/main)`, `update by push`, `"visibility": "public"`(11의 `# 7)`)
@@ -839,7 +875,7 @@ timmy518@AISiLa:~/codyssey/dev-workstation$ curl -s https://api.github.com/repos
 - **원인 가설** — ① 원본 파일에 정말 실행 권한이 있음 ② `/mnt/c`(drvfs: WSL이 Windows 드라이브를 연결하는 방식)가 기본 설정에서 리눅스 권한을 저장하지 않아 모든 파일을 777로 보여 주고, 복사할 때 umask 022가 적용되어 755가 됨
 - **확인** — mount 옵션에 `metadata`가 없고, 방금 `echo`로 만든 시험 파일도 `-rwxrwxrwx`로 보이므로 ①이 아니라 ②입니다. 복사본은 777에서 umask 022(그룹·기타의 w)가 꺼진 `-rwxr-xr-x`입니다.
 - **해결·대안** — 복사한 뒤 `chmod 644`로 정리하거나 `install -m 644`로 권한을 정해 복사합니다(둘 다 `-rw-r--r--`). 프로젝트를 처음부터 리눅스 홈(`~`)에서 만들면 생기지 않습니다. 이 저장소 파일도 644(폴더 755)입니다([`logs/07_build.log`](logs/07_build.log)의 `ls -la`).
-- **증거** — [`logs/12_troubleshooting.log`](logs/12_troubleshooting.log) 발췌:
+- **증거** — [`logs/12_troubleshooting.log`](logs/12_troubleshooting.log) 1–24행(`[7-3 재현]`) 발췌:
 
 ```bash
 timmy518@AISiLa:~$ mount | grep " /mnt/c "  # metadata 옵션 없음
@@ -858,8 +894,8 @@ timmy518@AISiLa:~$ chmod 644 ~/drvfs_copy_test.txt && ls -l ~/drvfs_copy_test.tx
 - **문제** — web-8080이 호스트 8080 포트를 쓰는 상태에서, 같은 호스트 포트로 컨테이너를 하나 더 띄우면 어떻게 되는지 일부러 재현했습니다.
 - **원인 가설** — 호스트의 8080 포트를 이미 다른 컨테이너나 다른 프로그램이 쓰고 있음
 - **확인** — 오류 문구 `Bind for 0.0.0.0:8080 failed: port is already allocated`가 그 뜻이고, 앞서 [5.8](#58-포트-매핑과-접속-증거)의 `docker ps`에서 web-8080의 PORTS가 `0.0.0.0:8080->80/tcp`였습니다. 첫 줄에 ID가 찍혀 컨테이너는 만들어졌지만 포트 연결에서 실패해 `Created`로 남았고, `docker run`은 exit code 125로 끝났습니다.
-- **해결·대안** — 다른 호스트 포트를 씁니다(이 미션의 두 번째 컨테이너는 `-p 8081:80`). 8080이 꼭 필요하면 쓰던 컨테이너를 정리(`docker stop web-8080`)한 뒤 실행합니다. 포트를 누가 쓰는지는 `docker ps`(컨테이너)나 `sudo ss -lntp | grep :8080`(그 밖의 프로그램)으로 확인합니다. `Created`로 남은 컨테이너는 이름을 계속 차지하므로 `docker rm web-conflict`로 지웠습니다.
-- **증거** — [`logs/08_ports.log`](logs/08_ports.log)의 5) 발췌:
+- **해결·대안** — 다른 호스트 포트를 씁니다(이 미션의 두 번째 컨테이너는 `-p 8081:80`). 8080이 꼭 필요하면 쓰던 컨테이너를 정리(`docker stop web-8080`)한 뒤 실행합니다. 포트를 누가 쓰는지는 `docker ps`(컨테이너)나 `sudo ss -lntp | grep :8080`(그 밖의 프로그램)으로 확인합니다. 그 밖의 프로그램이 쓰고 있으면 `ss` 출력의 `pid=` 값으로 그 프로그램을 확인해 끕니다(예: `sudo kill <PID>`). 다만 `docker-proxy`나 `dockerd`로 나오면 컨테이너가 쓰는 포트이므로 끄지 말고 `docker ps`로 찾아 정리합니다. `Created`로 남은 컨테이너는 이름을 계속 차지하므로 `docker rm web-conflict`로 지웠습니다.
+- **증거** — [`logs/08_ports.log`](logs/08_ports.log) 88–101행(`# 5)`) 발췌:
 
 ```bash
 timmy518@AISiLa:~/codyssey/dev-workstation$ docker run -d --name web-conflict -p 8080:80 my-web:1.0
@@ -893,7 +929,7 @@ web-conflict   Created
 - **원인 가설** — ① PowerShell 5.1이 외부 프로그램(`wsl.exe`)에 인자를 넘길 때 안쪽 큰따옴표를 제대로 전달하지 못함 ② `$f`를 안쪽 bash가 아닌 다른 단계(PowerShell, 또는 `wsl.exe`가 거치는 기본 리눅스 셸)가 먼저 해석함
 - **확인** — (a)는 ①로 추정하지만 따로 확인하지 않았습니다. (b)의 오류는 `install`이 파일 이름 없이 목적지만 받았다는 뜻이라 `$f`가 빈 값이었습니다. 같은 조건으로 재현하자 PowerShell이 넘긴 인자는 같은데 기본 셸을 거치는 `--`는 `[]`, 거치지 않는 `-e`는 `[1]`이 나와, 기본 셸이 안쪽 bash보다 먼저 변수를 빈 값으로 푼 것(②)을 확인했습니다.
 - **해결·대안** — 명령을 `.sh` 파일에 적고 `wsl -- bash 파일.sh`로 실행해 해결했습니다. 명령줄에는 파일 이름만 있고 내용은 bash가 파일에서 바로 읽으므로 따옴표와 `$변수`가 바뀌지 않습니다. (b)는 `wsl -e`로 기본 셸을 건너뛰어도 되고, 따라 할 때는 Ubuntu 터미널 안에서 입력하면 이 문제가 생기지 않습니다.
-- **증거** — 원래 오류는 로그 파일 없음(PowerShell 화면 메시지를 옮겨 적음). (b)의 원인(②) 재현 실험은 [`logs/12_troubleshooting.log`](logs/12_troubleshooting.log) 끝(`[7-6 재현]`)에 있습니다:
+- **증거** — 원래 오류는 로그 파일 없음(PowerShell 화면 메시지를 옮겨 적음). (b)의 원인(②) 재현 실험은 [`logs/12_troubleshooting.log`](logs/12_troubleshooting.log) 끝(`[7-6 재현]`, 26–34행)에 있습니다:
 
 ```powershell
 PS> wsl -d Ubuntu-24.04 -- bash -c "x=1; echo [`$x]"  # 기본 리눅스 셸을 거침
@@ -922,13 +958,14 @@ PS> wsl -d Ubuntu-24.04 -e bash -c "x=1; echo [`$x]"  # 기본 셸을 거치지 
 
 ## 9. 개념 정리 (과제 목표)
 
-- **절대 경로와 상대 경로** — 절대 경로는 루트(`/`)부터 쓰는 전체 주소라 어디서 실행해도 같은 곳을 가리킵니다(예: `cd /home/timmy518/codyssey/practice/docs`). 상대 경로는 현재 위치(`pwd`)를 기준으로 해석되어, `~`에서 실행한 `cd codyssey/practice`는 `/home/timmy518/codyssey/practice`로 갔지만 다른 위치에서 실행하면 다른 곳을 가리킵니다(`.` 현재, `..` 상위, `~` 홈 디렉토리). 바인드 마운트 `-v "$PWD/bind-site":/usr/share/nginx/html`의 왼쪽은 호스트의 절대 경로(`$PWD`로 만듦), 오른쪽은 컨테이너 안의 절대 경로입니다. ([5.1](#51-터미널-기본-조작), [5.9](#59-바인드-마운트-반영))
-- **권한 r/w/x와 755·644** — `ls -l`의 첫 글자는 종류(`-` 파일, `d` 디렉토리)이고, 뒤 9글자는 소유자(u)·그룹(g)·기타(o) 순서로 r(읽기)·w(쓰기)·x(실행)를 나타냅니다. 숫자는 자리마다 r=4, w=2, x=1을 더한 값이라 755는 `rwxr-xr-x`(소유자만 수정, 모두 읽기·실행: 스크립트·디렉토리), 644는 `rw-r--r--`(소유자만 수정, 모두 읽기: 일반 파일)입니다. 디렉토리의 x는 '안으로 들어가기' 권한이라 `perm_dir`을 644로 바꾸자 `cd`가 막혔습니다. ([5.2](#52-권한-실습))
-- **이미지와 컨테이너** — 이미지는 Dockerfile의 각 단계가 읽기 전용 층(레이어)으로 쌓인 실행 설계도이고([5.7](#57-dockerfile-커스텀-이미지)의 `docker history`), 컨테이너는 그 이미지 위에 자기만의 쓰기 층을 얹어 실행한 것입니다. 그래서 한 이미지 `my-web:1.0`으로 `web-8080`·`web-8081`을 따로 띄울 수 있었고([5.8](#58-포트-매핑과-접속-증거)), 컨테이너 안에서 쓴 파일은 그 컨테이너를 지우면 함께 사라졌습니다([5.10](#510-docker-볼륨-영속성)).
-- **격리된 실행 환경** — 컨테이너는 호스트·다른 컨테이너와 프로세스·네트워크가 나뉜 환경에서 실행됩니다. 컨테이너 안 bash는 자기 PID 1이었고([5.6](#56-컨테이너-실행-실습)), 두 웹 컨테이너는 둘 다 안쪽 80번 포트를 쓰면서도 충돌하지 않고 호스트 쪽 포트(8080, 8081)만 다르게 연결됐습니다([5.8](#58-포트-매핑과-접속-증거)).
+- **절대 경로와 상대 경로** — 절대 경로는 루트(`/`)부터 쓰는 전체 주소라 어디서 실행해도 같은 곳을 가리킵니다(예: `cd /home/timmy518/codyssey/practice/docs`). 상대 경로는 현재 위치(`pwd`)를 기준으로 해석되어, `~`에서 실행한 `cd codyssey/practice`는 `/home/timmy518/codyssey/practice`로 갔지만 다른 위치에서 실행하면 다른 곳을 가리킵니다(`.` 현재, `..` 상위, `~` 홈 디렉토리). 바인드 마운트 `-v "$PWD/bind-site":/usr/share/nginx/html`의 왼쪽은 호스트의 절대 경로(`$PWD`로 만듦), 오른쪽은 컨테이너 안의 절대 경로입니다. WSL에서 Windows 드라이브(`/mnt/c/…`)는 기본 설정에서 리눅스 권한을 저장하지 않아 모든 파일이 777로 보이므로([7-3](#7-3-windows-드라이브에서-가져온-파일에-실행-권한이-붙음)), 실습 폴더와 바인드 마운트할 폴더는 리눅스 홈(`~`) 아래에 두었습니다. ([5.1](#51-터미널-기본-조작), [5.9](#59-바인드-마운트-반영))
+- **권한 r/w/x와 755·644** — `ls -l`의 첫 글자는 종류(`-` 파일, `d` 디렉토리)이고, 뒤 9글자는 소유자(u)·그룹(g)·기타(o) 순서로 r(읽기)·w(쓰기)·x(실행)를 나타냅니다. 숫자는 자리마다 r=4, w=2, x=1을 더한 값이라(7=4+2+1은 `rwx`, 6=4+2는 `rw-`, 5=4+1은 `r-x`, 4는 `r--`, 0은 `---`) 755는 `rwxr-xr-x`(소유자만 수정, 모두 읽기·실행: 스크립트·디렉토리), 644는 `rw-r--r--`(소유자만 수정, 모두 읽기: 일반 파일)입니다. 디렉토리의 x는 '안으로 들어가기' 권한이라 `perm_dir`을 644로 바꾸자 `cd`가 막혔습니다. ([5.2](#52-권한-실습))
+- **이미지와 컨테이너** — 이미지는 Dockerfile의 각 단계가 읽기 전용 층(레이어)으로 쌓인 실행 설계도이고([5.7](#57-dockerfile-커스텀-이미지)의 `docker history`), 컨테이너는 그 이미지 위에 자기만의 쓰기 층을 얹어 실행한 것입니다. 그래서 한 이미지 `my-web:1.0`으로 `web-8080`·`web-8081`을 따로 띄울 수 있었고([5.8](#58-포트-매핑과-접속-증거)), 컨테이너 안에서 쓴 파일은 그 컨테이너를 지우면 함께 사라졌습니다([5.10](#510-docker-볼륨-영속성)). 컨테이너는 `docker run`으로 만들어져 실행 중(`Up`)이 되고, `stop`하면 멈춘 채(`Exited`) 남았다가 `start`로 다시 실행되며, 멈춘 뒤 `rm`(실행 중이면 `rm -f`)해야 사라집니다([5.5](#55-docker-기본-운영-명령)).
+- **격리된 실행 환경** — 컨테이너는 호스트·다른 컨테이너와 프로세스·네트워크가 나뉜 환경에서 실행됩니다. 컨테이너 안 bash는 자기 PID 1이었고([5.6](#56-컨테이너-실행-실습)), 두 웹 컨테이너는 둘 다 안쪽 80번 포트를 쓰면서도 충돌하지 않고 호스트 쪽 포트(8080, 8081)만 다르게 연결됐습니다([5.8](#58-포트-매핑과-접속-증거)). 이렇게 나뉘는 것은 리눅스 커널의 네임스페이스(namespace) 기능이 컨테이너마다 프로세스(PID)·네트워크 같은 공간을 따로 만들어 주기 때문입니다.
 - **기존 이미지 기반 커스텀 이미지** — Dockerfile은 베이스 이미지 위에 무엇을 바꿀지 적은 레시피입니다. 공식 `nginx:1.30.6-alpine`을 `FROM`으로 고르고 nginx 설정 템플릿과 정적 페이지를 `COPY`로 바꿔 `my-web:1.0`을 빌드했고, 같은 경로의 페이지 제목이 `Welcome to nginx!`에서 `Dev Workstation`으로 바뀌었습니다. ([5.7](#57-dockerfile-커스텀-이미지))
-- **포트 매핑이 필요한 이유** — 컨테이너는 Docker 내부 네트워크의 자기 IP([08 로그](logs/08_ports.log)의 `docker inspect` 결과 `172.17.0.2`)에서 요청을 기다리므로, 매핑 없이는 호스트의 `localhost:80`으로 접속되지 않았습니다(`curl: (7)`). `-p 8080:80`은 호스트 8080 포트로 온 요청을 컨테이너 80번으로 넘기는 규칙이라, 호스트 포트만 다르게 주면 같은 이미지를 여러 개 띄울 수 있습니다. ([5.8](#58-포트-매핑과-접속-증거), [7-4](#7-4-포트-충돌-의도적으로-재현))
+- **포트 매핑이 필요한 이유** — 컨테이너는 자기 네트워크 네임스페이스(자기만의 IP·포트·`localhost`) 안에서, Docker 내부 네트워크의 자기 IP([08 로그](logs/08_ports.log)의 `docker inspect` 결과 `172.17.0.2`)로 요청을 기다립니다. 그래서 컨테이너 안에서 `127.0.0.1`로 부른 `/health`는 `ok`였지만, 매핑 없이는 호스트의 `localhost:80`으로 접속되지 않았습니다(`curl: (7)`). `-p 8080:80`은 호스트 8080 포트로 온 요청을 컨테이너 네임스페이스의 80번으로 넘기는 포트 포워딩 규칙이라, 호스트 포트만 다르게 주면 같은 이미지를 여러 개 띄울 수 있습니다. ([5.8](#58-포트-매핑과-접속-증거), [7-4](#7-4-포트-충돌-의도적으로-재현))
 - **볼륨(영속 데이터)** — 컨테이너 안에 쓴 데이터는 그 컨테이너의 쓰기 층에 있어 컨테이너를 지우면 함께 사라집니다. 볼륨은 Docker가 관리하는 별도 저장 공간이라 `vol-writer`를 지운 뒤 새 `vol-reader`에서도 같은 `note.txt`를 읽었습니다([5.10](#510-docker-볼륨-영속성)). 바인드 마운트([5.9](#59-바인드-마운트-반영))는 내가 고른 호스트 폴더를 연결해 개발 중인 코드·설정을 바로 반영할 때, 볼륨은 DB 파일처럼 컨테이너를 지워도 남아야 하는 데이터에 씁니다. 다만 볼륨은 컨테이너가 바뀌어도 데이터가 남는 '영속성'이지 백업이 아닙니다. 볼륨 자체를 지우면(`docker volume rm`) 데이터도 사라지므로, 중요한 데이터는 따로 백업해야 합니다.
+- **볼륨 백업·복원 전략** — 백업은 볼륨을 읽기 전용(`:ro`)으로 연결한 임시 컨테이너로 내용을 tar 파일로 묶어 볼륨 밖(호스트 폴더, 가능하면 다른 디스크나 원격 저장소)에 두고, 복원은 새 볼륨에 풀어 넣습니다. [5.10](#510-docker-볼륨-영속성)의 백업과 복원에서 볼륨을 지운 뒤 새 볼륨에서 같은 sha256 해시로 되살아난 것을 확인했습니다. DB처럼 실행 중에 계속 쓰는 데이터는 백업 전에 그 컨테이너를 `docker stop`으로 멈추거나 DB의 덤프 기능(예: `pg_dump`, `mysqldump`)으로 받아야 내용이 어긋나지 않습니다. 백업 주기는 잃어도 되는 기간에 맞춥니다. 예를 들어 매일 바뀌는 DB 볼륨은 하루 한 번 백업하고, 볼륨을 지우거나(`docker volume rm`) 이미지·DB 버전을 올리기 직전에는 그때마다 한 번 더 백업하며, 백업 파일로 실제 복원이 되는지는 한 달에 한 번처럼 날짜를 정해 시험해 봅니다.
 - **Git과 GitHub** — Git은 내 컴퓨터에서 변경 이력을 기록하는 프로그램이고(`git init`·`git commit`은 인터넷 없이 동작, 기록은 `.git` 폴더), GitHub는 그 저장소를 인터넷에 올려 공유·협업하는 원격 서비스입니다. 둘은 원격 주소(`origin`)로 이어지고 `git push`로 커밋을 올립니다. ([5.11](#511-git-설정과-github--vs-code-연동))
 
 ---
@@ -1043,9 +1080,11 @@ rm -r ~/codyssey/practice/bind-site
 
 - **포트가 이미 쓰이는 경우** — `port is already allocated`가 나오면 실패한 컨테이너가 `Created`로 남아 이름을 차지하므로, 먼저 그 이름으로 지우고(예: `docker rm web-8080`) 호스트 쪽 숫자만 바꿔 그 줄을 다시 실행합니다(예: `-p 9080:80` → `http://localhost:9080`). [7-4](#7-4-포트-충돌-의도적으로-재현) 참고.
 - **이름이 겹치는 경우** — 이 절은 폴더 `Codyssey_E_1-1`·`~/codyssey/practice/bind-site`, 이미지 `my-web:1.0`, 컨테이너 `web-8080`·`web-8081`·`web-bind`·`vol-writer`, 볼륨 `web-data`를 고정 이름으로 씁니다. 이미 있으면 clone이나 컨테이너 실행이 실패하고(`Conflict`), 이미지 태그·파일·볼륨 내용은 경고 없이 덮어쓰이며 7)에서 지워집니다. 남겨야 할 것이 있으면 이름을 바꿔 실행하고 7)에서도 같은 이름을 쓰세요. 다시 실행할 때는 7)부터 실행하면 됩니다.
-- **docker 권한 (Linux·WSL)** — `permission denied … docker.sock`이 나오면 `sudo usermod -aG docker $USER`를 실행한 뒤 터미널을 새로 엽니다(WSL은 PowerShell에서 `wsl --shutdown` 후 다시 열기). docker 그룹이 사실상 root 권한이라는 점은 [5.3](#53-docker-설치)을 참고하세요.
+- **빌드 결과가 예상과 다른 경우** — 예전 빌드 캐시가 쓰였을 수 있으니 `docker build --no-cache -t my-web:1.0 .`로 캐시 없이 다시 빌드합니다. 다시 빌드해도 이미 실행 중인 컨테이너는 예전 이미지로 계속 돌므로, 7)의 첫 블록으로 컨테이너를 지운 뒤 3)부터 다시 실행합니다.
+- **docker 권한 (Linux·WSL)** — `permission denied … docker.sock`이 나오면 `sudo usermod -aG docker $USER`를 실행한 뒤, 일반 Linux는 로그아웃했다가 다시 로그인하고(또는 `newgrp docker`), WSL은 터미널을 새로 엽니다(그래도 안 되면 PowerShell에서 `wsl --shutdown` 후 다시 열기). docker 그룹이 사실상 root 권한이라는 점은 [5.3](#53-docker-설치)을 참고하세요.
 - **Windows** — 명령은 PowerShell에서 `wsl -- bash -c "…"`로 넘기지 말고 Ubuntu 터미널 안에서 입력합니다([7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐)).
 - **macOS** — 위 0)\~7)에는 sudo가 필요한 명령이 없습니다. `Cannot connect to the Docker daemon`이 나오면 OrbStack 앱을 실행한 뒤 다시 하고, `command not found: docker`면 터미널을 새로 엽니다. git이 없으면 `xcode-select --install`로 설치하거나(관리자 권한이 필요할 수 있음), 저장소 페이지의 **Code → Download ZIP**으로 받아 압축을 푼 폴더(`Codyssey_E_1-1-main`)에서 2)부터 진행합니다. WSL 관련 단계(위 1\~4번, 7-1·7-2·7-3·7-6)와 5.3·5.4의 systemctl·docker 그룹 점검은 해당하지 않습니다.
+- **Linux(WSL이 아닌 Ubuntu)** — 위 1·2번(WSL 설치와 Ubuntu 첫 실행)과 7-1·7-2·7-3·7-6(WSL에서만 생기는 문제)은 해당하지 않습니다. [5.3](#53-docker-설치)의 **일반 사용자로 따라 하기**로 설치한 뒤, 로그아웃했다가 다시 로그인해 `id -nG`에 `docker`가 보이면 0)부터 진행합니다. Ubuntu가 아닌 배포판은 Docker 공식 문서의 배포판별 설치 방법으로 설치합니다.
 
 ---
 
@@ -1058,10 +1097,10 @@ rm -r ~/codyssey/practice/bind-site
 - 시각은 컨테이너 안(nginx 로그의 `+0000`, 볼륨 실습의 `date`)이 UTC, 호스트 쪽(`ls -l`, `docker volume inspect`의 `+09:00`)이 KST라 9시간 차이가 납니다(05:50 UTC = 14:50 KST).
 - 터미널 캡처 2장(5.1, 5.6)은 로그를 다 만든 뒤 같은 기록 방식으로 Windows Terminal에서 다시 실행해 찍었습니다(11월 2일 20:55~20:56).
 - **로그에 없는 것** — 7-1·7-2·7-5·7-6의 화면 메시지(7-6은 원인 재현 실험만 12 끝에 있음)와 첫 커밋 때 나온 CRLF 경고([5.11](#511-git-설정과-github--vs-code-연동))는 로그 파일이 없어 화면 내용을 옮겨 적었습니다. 첫 커밋의 `git add`·`git commit`과 5.11 연동 절차 5단계의 원격 교체·커밋·`git push` 명령도 기록 밖이며, 결과는 11의 `# 4)`·`# 7)`로 확인합니다.
-- **기록 차수** (시각은 11월 2일 KST)
+- **기록 차수** (시각은 KST, 날짜를 따로 적지 않은 것은 11월 2일)
   - **1차** (13:4x): 01, 03, 11의 `# 1)`\~`# 3)`(Git 설정·`git init`)
   - **2차** (14:4x–14:5x, 검토 후 다시 기록): 00(`[3]` 초기화 포함), 02, 04\~10, 12 — 번호 순서대로
-  - **보충**: 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검, 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05)
+  - **보충**: 11의 `# 4)`\~`# 6)`(첫 커밋·GitHub 연동 확인, `--show-scope`), 06 끝 `no-it-demo2`, 12 끝 7-6 재현, 13 민감정보 점검, 터미널 캡처 2장(20:55~20:56), 11의 `# 7)`(제출 저장소 연결 확인, 21:05), 10의 `# 7)`(볼륨 백업·복원, 11월 3일 14:39)
 - 1차 기록을 문서와 대조하자 빠진 준비 명령, 번호와 다른 실행 순서, 결론을 뒷받침하지 못하는 비교 실험(볼륨 없는 데이터)이 나와, 00의 `[3]`에서 실습 환경을 비우고(`docker system df` 모두 0) 다시 기록했습니다(04의 `Images: 0`, 05\~07의 새 pull은 이 때문). 2차 기록 도중 한 번은 [7-6](#7-6-powershell에서-wsl로-명령을-넘길-때-변수와-따옴표가-깨짐) (b) 때문에 고친 파일이 복사되지 않아 처음부터 다시 했고, `[3]`이 지운 컨테이너(web-8080·web-8081·web-bind와 hello-world)는 그 버린 시도가 남긴 것입니다.
 - 검토 후 고친 것은 설명(`#`) 줄과 보충 실험뿐이고, 명령과 출력은 고치지 않았습니다. 고친 설명 줄은 아래와 같습니다.
   - 00 `[3]`: 다시 기록한 범위를 02, 04\~10, 12로 바로잡음

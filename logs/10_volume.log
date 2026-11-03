@@ -82,3 +82,47 @@ timmy518@AISiLa:~$ docker run --rm -v web-data:/data ubuntu:24.04 ls -l /data
 total 4
 -rw-r--r-- 1 root root 68 Nov  2 05:50 note.txt
 
+# 7) (보충, 11월 3일 14:39 KST) 볼륨 백업·복원 — 볼륨은 컨테이너가 바뀌어도 데이터가 남는 '영속성'일 뿐 백업이 아니다.
+#    볼륨을 지우면(docker volume rm) 데이터도 사라지므로, 볼륨 내용을 tar 파일로 볼륨 밖(호스트 폴더)에 백업해 두고 새 볼륨에 복원한다.
+#    증거용 web-data 볼륨과 실습 컨테이너는 건드리지 않고, 시험용 볼륨 backup-demo 로 확인했다.
+timmy518@AISiLa:~/codyssey/practice$ docker volume create backup-demo
+backup-demo
+
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-demo:/data ubuntu:24.04 sh -c 'echo "backup test $(date +%F_%T)" > /data/note.txt && cat /data/note.txt && sha256sum /data/note.txt'
+backup test 2026-11-03_05:39:05
+22a43c0b4a4c249cc3bf9ba39e1a5b6377e96a3da105c594be936510ce772fdb  /data/note.txt
+
+#    백업: 볼륨을 읽기 전용(:ro)으로, 호스트 폴더 volume-backup 을 /backup 으로 연결한 임시 컨테이너가 tar 로 묶는다
+timmy518@AISiLa:~/codyssey/practice$ mkdir -p volume-backup
+
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-demo:/data:ro -v "$PWD/volume-backup":/backup ubuntu:24.04 tar czf /backup/backup-demo.tgz -C /data .
+
+timmy518@AISiLa:~/codyssey/practice$ ls -l volume-backup
+total 4
+-rw-r--r-- 1 root root 172 Nov  3 14:39 backup-demo.tgz
+
+#    사고 재현: 볼륨을 지우면 그 안의 데이터도 함께 사라진다(목록에 backup-demo 가 없음)
+timmy518@AISiLa:~/codyssey/practice$ docker volume rm backup-demo
+backup-demo
+
+timmy518@AISiLa:~/codyssey/practice$ docker volume ls --filter name=backup-demo
+DRIVER    VOLUME NAME
+
+#    복원: 새 볼륨을 만들고 백업 파일을 풀어 넣은 뒤, 내용과 sha256 해시가 백업 전과 같은지 확인
+timmy518@AISiLa:~/codyssey/practice$ docker volume create backup-restore
+backup-restore
+
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-restore:/data -v "$PWD/volume-backup":/backup ubuntu:24.04 tar xzf /backup/backup-demo.tgz -C /data
+
+timmy518@AISiLa:~/codyssey/practice$ docker run --rm -v backup-restore:/data:ro ubuntu:24.04 sh -c 'cat /data/note.txt && sha256sum /data/note.txt'
+backup test 2026-11-03_05:39:05
+22a43c0b4a4c249cc3bf9ba39e1a5b6377e96a3da105c594be936510ce772fdb  /data/note.txt
+
+#    정리: 시험용 볼륨만 지운다(백업 파일 volume-backup/backup-demo.tgz 는 남김). 증거용 web-data 는 그대로다
+timmy518@AISiLa:~/codyssey/practice$ docker volume rm backup-restore
+backup-restore
+
+timmy518@AISiLa:~/codyssey/practice$ docker volume ls
+DRIVER    VOLUME NAME
+local     web-data
+
